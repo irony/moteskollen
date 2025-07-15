@@ -1,0 +1,306 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { 
+  Plus, 
+  Search, 
+  Calendar, 
+  Clock, 
+  FileText, 
+  Menu,
+  Mic,
+  Play,
+  Trash2,
+  Edit3,
+  MessageSquare,
+  ChevronRight,
+  Shield
+} from 'lucide-react';
+import { AppSidebar } from './AppSidebar';
+import { GlobalSearch } from './GlobalSearch';
+import { useToast } from '@/hooks/use-toast';
+
+interface Meeting {
+  id: string;
+  date: Date;
+  title: string;
+  status: 'recording' | 'processing' | 'completed';
+  duration?: number;
+  summary?: string;
+  actionItems?: string[];
+  originalTranscription?: string;
+  templateType?: string;
+}
+
+interface MeetingListProps {
+  onLogout: () => void;
+  onSelectMeeting: (meeting: Meeting) => void;
+  onStartNewRecording: () => void;
+}
+
+export const MeetingList: React.FC<MeetingListProps> = ({
+  onLogout,
+  onSelectMeeting,
+  onStartNewRecording
+}) => {
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const { toast } = useToast();
+
+  // Ladda möten från localStorage
+  useEffect(() => {
+    const savedMeetings = JSON.parse(localStorage.getItem('meetings') || '[]');
+    setMeetings(savedMeetings.map((m: any) => ({ ...m, date: new Date(m.date) })));
+  }, []);
+
+  const filteredMeetings = meetings.filter(meeting =>
+    meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    meeting.summary?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const deleteMeeting = (meetingId: string) => {
+    const updatedMeetings = meetings.filter(m => m.id !== meetingId);
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    toast({
+      title: "Möte borttaget",
+      description: "Mötet har tagits bort från historiken."
+    });
+  };
+
+  const editMeetingTitle = (meetingId: string, newTitle: string) => {
+    const updatedMeetings = meetings.map(m => 
+      m.id === meetingId ? { ...m, title: newTitle } : m
+    );
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+  };
+
+  const getStatusColor = (status: Meeting['status']) => {
+    switch (status) {
+      case 'recording':
+        return 'bg-red-500 animate-pulse';
+      case 'processing':
+        return 'bg-yellow-500';
+      case 'completed':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status: Meeting['status']) => {
+    switch (status) {
+      case 'recording':
+        return 'Spelar in';
+      case 'processing':
+        return 'Bearbetar';
+      case 'completed':
+        return 'Klart';
+      default:
+        return 'Okänt';
+    }
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '—';
+    const minutes = Math.floor(seconds / 60);
+    return `${minutes} min`;
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('sv-SE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        {/* Sidebar */}
+        <AppSidebar 
+          onShowHistory={() => setIsHistoryOpen(true)}
+          onLogout={onLogout}
+          meetingsCount={meetings.length}
+        />
+
+        {/* Huvudinnehåll */}
+        <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20">
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/30">
+            <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <SidebarTrigger className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                    <Menu className="w-5 h-5" />
+                  </SidebarTrigger>
+                  
+                  <div className="space-y-1">
+                    <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-foreground">Mina Möten</h1>
+                    <p className="text-xs md:text-sm text-muted-foreground font-medium">
+                      {meetings.length} möten sparade
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <GlobalSearch
+                    onShowHistory={() => setIsHistoryOpen(true)}
+                    onStartRecording={onStartNewRecording}
+                    onFileUpload={() => {}} // TODO: Implement file upload
+                    meetingContext=""
+                    meetingsCount={meetings.length}
+                  />
+                  
+                  <Button onClick={onStartNewRecording} className="bg-red-500 hover:bg-red-600">
+                    <Plus className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Nytt möte</span>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
+            {/* Säkerhetsinformation */}
+            <Alert>
+              <Shield className="h-4 w-4" />
+              <AlertDescription>
+                <strong>100% GDPR-kompatibel</strong> - All data bearbetas inom Sverige. Inget skickas utanför EU.
+              </AlertDescription>
+            </Alert>
+
+            {/* Sök */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Sök bland dina möten..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Möten */}
+            {filteredMeetings.length === 0 ? (
+              <div className="text-center py-12">
+                {meetings.length === 0 ? (
+                  <div className="space-y-4">
+                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                      <Mic className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
+                      <p className="text-muted-foreground mt-2">
+                        Börja med att spela in ditt första möte
+                      </p>
+                    </div>
+                    <Button onClick={onStartNewRecording} className="bg-red-500 hover:bg-red-600">
+                      <Mic className="w-4 h-4 mr-2" />
+                      Starta inspelning
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">Inga möten matchade din sökning</p>
+                    <Button variant="outline" onClick={() => setSearchQuery('')}>
+                      Rensa sökning
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {filteredMeetings.map((meeting) => (
+                  <Card 
+                    key={meeting.id} 
+                    className="hover:shadow-lg transition-all duration-200 cursor-pointer hover:bg-muted/20"
+                    onClick={() => onSelectMeeting(meeting)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <div className={`w-3 h-3 rounded-full ${getStatusColor(meeting.status)}`} />
+                            <h3 className="text-lg font-semibold text-foreground">{meeting.title}</h3>
+                            <Badge variant="outline" className="text-xs">
+                              {getStatusText(meeting.status)}
+                            </Badge>
+                          </div>
+                          
+                          <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-3">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{formatDate(meeting.date)}</span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4" />
+                              <span>{formatDuration(meeting.duration)}</span>
+                            </div>
+                          </div>
+
+                          {meeting.summary && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">
+                              {meeting.summary.slice(0, 150)}...
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center space-x-2 ml-4">
+                          {meeting.status === 'completed' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onSelectMeeting(meeting);
+                                }}
+                              >
+                                <MessageSquare className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // TODO: Implement edit functionality
+                                }}
+                              >
+                                <Edit3 className="w-4 h-4" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteMeeting(meeting.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    </SidebarProvider>
+  );
+};
