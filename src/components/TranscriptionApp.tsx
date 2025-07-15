@@ -492,6 +492,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           audioLevel={audioLevel}
           isActive={isRecording}
           onStartRecording={handleStartRecording}
+          onStopRecording={handleStopRecording}
         />
 
         {/* Error display */}

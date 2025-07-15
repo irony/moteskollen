@@ -17,13 +17,15 @@ interface HybridTranscriptionProps {
   audioLevel: number;
   isActive: boolean;
   onStartRecording?: () => void;
+  onStopRecording?: () => void; // Lägg till callback för att stoppa inspelning
 }
 
 export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
   segments,
   audioLevel,
   isActive,
-  onStartRecording
+  onStartRecording,
+  onStopRecording
 }) => {
   // TV-Caption effekt: visa bara de senaste 2 segmenten
   const recentSegments = segments.slice(-2);
@@ -111,7 +113,12 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
 
           {isActive && (
             <div className="absolute top-3 right-3">
-              <Badge variant="destructive" className="animate-pulse text-xs font-bold shadow-lg">
+              <Badge 
+                variant="destructive" 
+                className="animate-pulse text-xs font-bold shadow-lg cursor-pointer hover:bg-destructive/80 transition-colors select-none" 
+                onClick={onStopRecording}
+                title="Klicka för att stoppa inspelning"
+              >
                 🔴 LIVE
               </Badge>
             </div>

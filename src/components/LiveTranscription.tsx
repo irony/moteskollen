@@ -12,12 +12,14 @@ interface LiveTranscriptionProps {
   }>;
   audioLevel: number;
   isActive: boolean;
+  onStopRecording?: () => void; // Lägg till callback för att stoppa inspelning
 }
 
 export const LiveTranscription: React.FC<LiveTranscriptionProps> = ({
   transcriptionSegments,
   audioLevel,
-  isActive
+  isActive,
+  onStopRecording
 }) => {
   return (
     <Card className="shadow-elegant min-h-96">
@@ -28,8 +30,16 @@ export const LiveTranscription: React.FC<LiveTranscriptionProps> = ({
             {isActive ? (
               <>
                 <Volume2 className="w-4 h-4 text-success" />
-                <Badge variant="default" className="bg-success">
-                  Aktiv
+                <Badge 
+                  variant="default" 
+                  className="bg-success hover:bg-success/80 cursor-pointer transition-colors select-none"
+                  onClick={onStopRecording}
+                  title="Klicka för att stoppa inspelning"
+                >
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                    <span>LIVE</span>
+                  </div>
                 </Badge>
               </>
             ) : (
