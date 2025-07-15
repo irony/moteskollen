@@ -16,12 +16,14 @@ interface HybridTranscriptionProps {
   segments: TranscriptionSegment[];
   audioLevel: number;
   isActive: boolean;
+  onStartRecording?: () => void;
 }
 
 export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
   segments,
   audioLevel,
-  isActive
+  isActive,
+  onStartRecording
 }) => {
   // TV-Caption effekt: visa bara de senaste 2 segmenten
   const recentSegments = segments.slice(-2);
@@ -56,7 +58,12 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
           <div className="px-6 py-4 min-h-[120px] flex flex-col justify-end">
             {!isActive && segments.length === 0 ? (
               <div className="text-center text-white/60 py-4">
-                <p className="text-lg font-semibold">Tryck för att börja</p>
+                <button 
+                  onClick={onStartRecording}
+                  className="text-lg font-semibold hover:text-white transition-colors cursor-pointer"
+                >
+                  Tryck för att börja
+                </button>
               </div>
             ) : isActive && segments.length === 0 ? (
               <div className="text-center text-white/70 py-4">

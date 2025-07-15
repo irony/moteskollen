@@ -232,6 +232,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           segments={segments}
           audioLevel={audioLevel}
           isActive={isRecording}
+          onStartRecording={handleStartRecording}
         />
 
         {/* Resultat */}
