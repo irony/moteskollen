@@ -29,10 +29,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
 
   const menuItems = [
     {
-      id: 'home',
-      title: 'Hem',
-      icon: Home,
-      action: () => {}, // Redan på hem-sidan
+      id: 'settings',
+      title: 'Inställningar',
+      icon: Settings,
+      action: () => {}, // TODO: Implement settings
       disabled: true
     },
     {
