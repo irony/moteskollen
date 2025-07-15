@@ -4,28 +4,28 @@
 
 @layer base {
   :root {
-    /* Apple-inspired color palette */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 9%;
+    /* Neumorphism light theme */
+    --background: 232 17% 96%;
+    --foreground: 225 25% 15%;
     
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 9%;
+    --card: 232 17% 96%;
+    --card-foreground: 225 25% 15%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 9%;
+    --popover: 232 17% 96%;
+    --popover-foreground: 225 25% 15%;
     
-    /* Apple blue accent */
+    /* Primary blue with neumorphic feel */
     --primary: 214 100% 60%;
     --primary-light: 214 100% 70%;
     --primary-dark: 214 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Subtle grays */
-    --secondary: 0 0% 96%;
-    --secondary-foreground: 0 0% 9%;
+    /* Neumorphic secondary colors */
+    --secondary: 232 15% 94%;
+    --secondary-foreground: 225 25% 25%;
     
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 232 15% 92%;
+    --muted-foreground: 225 15% 45%;
 
     --accent: 214 100% 60%;
     --accent-foreground: 0 0% 100%;
@@ -39,58 +39,63 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 9%;
 
-    /* Borders and inputs */
-    --border: 0 0% 90%;
-    --input: 0 0% 97%;
+    /* Neumorphic borders and inputs */
+    --border: 232 15% 88%;
+    --input: 232 15% 94%;
     --ring: 214 100% 60%;
 
-    /* Apple-style radius */
-    --radius: 1rem;
+    /* Neumorphic radius */
+    --radius: 1.5rem;
     
-    /* Premium shadows */
-    --shadow-elegant: 0 4px 16px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+    /* Neumorphic shadows - light theme */
+    --shadow-neu-inset: inset 4px 4px 8px rgba(174, 174, 192, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
+    --shadow-neu-outset: 4px 4px 8px rgba(174, 174, 192, 0.4), -4px -4px 8px rgba(255, 255, 255, 0.9);
+    --shadow-neu-pressed: inset 6px 6px 12px rgba(174, 174, 192, 0.5), inset -6px -6px 12px rgba(255, 255, 255, 1);
+    --shadow-neu-hover: 6px 6px 12px rgba(174, 174, 192, 0.3), -6px -6px 12px rgba(255, 255, 255, 0.8);
+    --shadow-neu-float: 8px 8px 16px rgba(174, 174, 192, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9);
     --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.3);
-    --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     
     /* Smooth transitions */
-    --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-smooth: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark {
-    --background: 0 0% 9%;
-    --foreground: 0 0% 95%;
+    /* Neumorphism dark theme */
+    --background: 225 25% 12%;
+    --foreground: 232 17% 90%;
 
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 95%;
+    --card: 225 25% 12%;
+    --card-foreground: 232 17% 90%;
 
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
+    --popover: 225 25% 14%;
+    --popover-foreground: 232 17% 90%;
 
     --primary: 214 100% 60%;
     --primary-foreground: 0 0% 9%;
 
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 95%;
+    --secondary: 225 25% 16%;
+    --secondary-foreground: 232 17% 85%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted: 225 25% 18%;
+    --muted-foreground: 232 10% 60%;
 
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
+    --accent: 225 25% 16%;
+    --accent-foreground: 232 17% 90%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 95%;
+    --destructive-foreground: 232 17% 90%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 15%;
+    --border: 225 25% 22%;
+    --input: 225 25% 16%;
     --ring: 214 100% 60%;
     
-    /* Dark shadows */
-    --shadow-elegant: 0 4px 16px 0 rgba(0, 0, 0, 0.3), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+    /* Neumorphic shadows - dark theme */
+    --shadow-neu-inset: inset 4px 4px 8px rgba(0, 0, 0, 0.5), inset -4px -4px 8px rgba(55, 65, 95, 0.3);
+    --shadow-neu-outset: 4px 4px 8px rgba(0, 0, 0, 0.5), -4px -4px 8px rgba(55, 65, 95, 0.3);
+    --shadow-neu-pressed: inset 6px 6px 12px rgba(0, 0, 0, 0.6), inset -6px -6px 12px rgba(55, 65, 95, 0.4);
+    --shadow-neu-hover: 6px 6px 12px rgba(0, 0, 0, 0.4), -6px -6px 12px rgba(55, 65, 95, 0.25);
+    --shadow-neu-float: 8px 8px 16px rgba(0, 0, 0, 0.5), -8px -8px 16px rgba(55, 65, 95, 0.3);
     --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.4);
-    --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
   }
 }
 
@@ -107,41 +112,118 @@
 }
 
 @layer components {
-  /* Apple-inspired cards */
+  /* Neumorphic card styles */
+  .neu-card {
+    @apply rounded-3xl bg-background border-0;
+    box-shadow: var(--shadow-neu-outset);
+    transition: var(--transition-smooth);
+  }
+
+  .neu-card:hover {
+    box-shadow: var(--shadow-neu-hover);
+  }
+
+  .neu-card-inset {
+    @apply rounded-3xl bg-background border-0;
+    box-shadow: var(--shadow-neu-inset);
+  }
+
+  .neu-card-pressed {
+    box-shadow: var(--shadow-neu-pressed);
+    transform: scale(0.98);
+  }
+
+  .neu-card-float {
+    @apply rounded-3xl bg-background border-0;
+    box-shadow: var(--shadow-neu-float);
+  }
+
+  /* Neumorphic buttons */
+  .neu-button {
+    @apply rounded-2xl px-6 py-3 font-medium bg-background border-0;
+    box-shadow: var(--shadow-neu-outset);
+    transition: var(--transition-smooth);
+  }
+
+  .neu-button:hover {
+    box-shadow: var(--shadow-neu-hover);
+    transform: translateY(-1px);
+  }
+
+  .neu-button:active {
+    box-shadow: var(--shadow-neu-pressed);
+    transform: scale(0.98);
+  }
+
+  .neu-button-primary {
+    @apply rounded-2xl px-6 py-3 font-medium bg-primary text-primary-foreground border-0;
+    box-shadow: 4px 4px 8px rgba(74, 144, 226, 0.3), -4px -4px 8px rgba(144, 180, 255, 0.5);
+    transition: var(--transition-smooth);
+  }
+
+  .neu-button-primary:hover {
+    box-shadow: 6px 6px 12px rgba(74, 144, 226, 0.4), -6px -6px 12px rgba(144, 180, 255, 0.6);
+    transform: translateY(-1px);
+  }
+
+  .neu-button-primary:active {
+    box-shadow: inset 4px 4px 8px rgba(74, 144, 226, 0.5), inset -2px -2px 6px rgba(144, 180, 255, 0.3);
+    transform: scale(0.98);
+  }
+
+  /* Neumorphic inputs */
+  .neu-input {
+    @apply rounded-2xl bg-background border-0 px-4 py-3 focus:outline-none;
+    box-shadow: var(--shadow-neu-inset);
+    transition: var(--transition-smooth);
+  }
+
+  .neu-input:focus {
+    box-shadow: var(--shadow-neu-inset), 0 0 0 2px hsl(var(--primary));
+  }
+
+  /* Legacy Apple styles for compatibility */
   .apple-card {
-    @apply rounded-3xl border-0 bg-card/80 backdrop-blur-sm;
-    box-shadow: var(--shadow-elegant);
+    @apply neu-card;
   }
 
   .apple-glass {
     @apply bg-background/80 backdrop-blur-lg border-border/30 rounded-2xl;
-    box-shadow: var(--shadow-glass);
+    box-shadow: var(--shadow-neu-float);
   }
 
-  /* Apple-style buttons */
   .apple-button {
-    @apply rounded-2xl px-6 py-3 font-medium transition-all duration-200 transform active:scale-95;
+    @apply neu-button;
   }
 
   .apple-button-outline {
-    @apply border-border/50 bg-transparent text-foreground hover:bg-muted/50 rounded-2xl font-medium transition-all duration-200;
+    @apply border-border/50 bg-transparent text-foreground hover:bg-muted/50 rounded-2xl font-medium;
+    transition: var(--transition-smooth);
   }
 
-  /* Premium shadows */
-  .shadow-elegant {
-    box-shadow: var(--shadow-elegant);
+  /* Neumorphic shadows utility classes */
+  .shadow-neu-outset {
+    box-shadow: var(--shadow-neu-outset);
+  }
+  
+  .shadow-neu-inset {
+    box-shadow: var(--shadow-neu-inset);
+  }
+
+  .shadow-neu-pressed {
+    box-shadow: var(--shadow-neu-pressed);
+  }
+
+  .shadow-neu-hover {
+    box-shadow: var(--shadow-neu-hover);
+  }
+
+  .shadow-neu-float {
+    box-shadow: var(--shadow-neu-float);
   }
   
   .shadow-recording {
     box-shadow: var(--shadow-recording);
-  }
-
-  .shadow-glass {
-    box-shadow: var(--shadow-glass);
-  }
-
-  .shadow-float {
-    box-shadow: var(--shadow-float);
   }
 
   /* Utility classes */

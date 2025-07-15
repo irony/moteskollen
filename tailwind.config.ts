@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
-	darkMode: ["class"],
+	darkMode: ["media", "class"],
 	content: [
 		"./pages/**/*.{ts,tsx}",
 		"./components/**/*.{ts,tsx}",
@@ -87,6 +87,14 @@ export default {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			boxShadow: {
+				'neu-inset': 'var(--shadow-neu-inset)',
+				'neu-outset': 'var(--shadow-neu-outset)',
+				'neu-pressed': 'var(--shadow-neu-pressed)',
+				'neu-hover': 'var(--shadow-neu-hover)',
+				'neu-float': 'var(--shadow-neu-float)',
+				'recording': 'var(--shadow-recording)',
+			},
 			keyframes: {
 				'accordion-down': {
 					from: {
@@ -103,11 +111,20 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'neu-pulse': {
+					'0%, 100%': {
+						boxShadow: 'var(--shadow-neu-outset)'
+					},
+					'50%': {
+						boxShadow: 'var(--shadow-neu-hover)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'neu-pulse': 'neu-pulse 2s ease-in-out infinite'
 			}
 		}
 	},
