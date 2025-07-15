@@ -121,6 +121,31 @@ class BergetApiService {
     return response.json();
   }
 
+  // OCR för dokument
+  async processDocument(documentBlob: Blob): Promise<{ text: string }> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const formData = new FormData();
+    formData.append('file', documentBlob);
+
+    const response = await fetch(`${this.baseUrl}/v1/ocr/document`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OCR misslyckades: ${response.status} - ${errorText}`);
+    }
+
+    return response.json();
+  }
+
   // Summera och städa text till protokoll
   async summarizeToProtocol(text: string, customSystemPrompt?: string): Promise<SummaryResponse> {
     if (!this.apiKey) {

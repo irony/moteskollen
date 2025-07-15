@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -33,7 +34,8 @@ import {
   MessageSquare,
   ChevronDown,
   Brain,
-  Upload
+  Upload,
+  Paperclip
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -59,6 +61,13 @@ interface Meeting {
   actionItems?: string[];
   originalTranscription?: string;
   templateType?: string;
+}
+
+interface Document {
+  id: string;
+  name: string;
+  content: string;
+  uploadedAt: Date;
 }
 
 // Mallar för olika typer av renskrivning
@@ -118,8 +127,11 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState('meeting');
   const [error, setError] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [analysisStarted, setAnalysisStarted] = useState(false);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const { toast } = useToast();
 
@@ -145,57 +157,72 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
   const { analysis, isAnalyzing, analyzeTranscription } = useMeetingAnalysis();
 
-  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileUpload = useCallback(async (file: File) => {
     if (!file) return;
 
-    // Kontrollera filtyp
-    if (!file.type.startsWith('audio/')) {
-      toast({
-        title: "Ogiltigt filformat",
-        description: "Vänligen ladda upp en ljudfil.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+    setIsProcessingFile(true);
     try {
-      setError(null);
-      setProcessingStep('transcribing');
+      const result = await bergetApi.transcribeAudio(file);
       
-      // Skapa nytt möte för uppladdad fil
       const newMeeting: Meeting = {
         id: Date.now().toString(),
+        title: file.name.replace(/\.[^/.]+$/, "") || "Uppladdat möte",
         date: new Date(),
-        title: `Uppladdat möte ${new Date().toLocaleDateString('sv-SE')} ${new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}`,
-        status: 'processing'
+        status: 'completed',
+        summary: "",
+        actionItems: [],
+        originalTranscription: result.text,
+        templateType: selectedTemplate
       };
-      
-      const updatedMeetings = [...meetings, newMeeting];
-      setMeetings(updatedMeetings);
-      setCurrentMeetingId(newMeeting.id);
-      localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
 
-      // Transkribera filen med Berget AI
-      const transcriptionResult = await bergetApi.transcribeAudio(file);
-      setFullTranscription(transcriptionResult.text);
+      setMeetings(prev => [newMeeting, ...prev]);
       
-      // Bearbeta transkriberingen direkt
-      await processTranscription(transcriptionResult.text);
-      
-    } catch (err: any) {
-      setError(err.message);
-      setProcessingStep('error');
       toast({
-        title: "Fel vid uppladdning",
-        description: err.message,
+        title: "Fil uppladdad",
+        description: "Ljudfilen har transkriberats framgångsrikt"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Uppladdning misslyckades",
+        description: error.message,
         variant: "destructive"
       });
+    } finally {
+      setIsProcessingFile(false);
+      setUploadedFile(null);
     }
+  }, [selectedTemplate, toast]);
 
-    // Rensa input
-    event.target.value = '';
-  }, [meetings, toast]);
+  const handleDocumentUpload = useCallback(async (file: File) => {
+    if (!file) return;
+
+    setIsProcessingFile(true);
+    try {
+      const result = await bergetApi.processDocument(file);
+      
+      const newDocument: Document = {
+        id: Date.now().toString(),
+        name: file.name,
+        content: result.text,
+        uploadedAt: new Date()
+      };
+
+      setDocuments(prev => [newDocument, ...prev]);
+      
+      toast({
+        title: "Dokument uppladdad",
+        description: "Dokumentet har bearbetats och är nu tillgängligt i chatten"
+      });
+    } catch (error: any) {
+      toast({
+        title: "Dokumentuppladdning misslyckades",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setIsProcessingFile(false);
+    }
+  }, [toast]);
 
   const handleStartRecording = useCallback(async () => {
     setError(null);
@@ -383,6 +410,20 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     }
   };
 
+  const getMeetingContext = (meeting: Meeting) => {
+    const documentContext = documents.length > 0 
+      ? '\n\nRelaterade dokument:\n' + documents.map(d => `${d.name}:\n${d.content}`).join('\n\n')
+      : '';
+    
+    return (meeting.originalTranscription || '') + documentContext;
+  };
+
+  const getGlobalContext = () => {
+    return documents.length > 0 
+      ? 'Tillgängliga dokument:\n' + documents.map(d => `${d.name}:\n${d.content}`).join('\n\n')
+      : '';
+  };
+
   const selectedTemplateData = PROTOCOL_TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
@@ -422,559 +463,384 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
         {/* Protokoll visning eller tabs */}
         {processingStep === 'completed' && summary ? (
           <div className="space-y-6">
-            {/* Header med tillbaka-knapp */}
-            <div className="flex items-center justify-between">
-              <Button variant="outline" onClick={handleReset}>
-                ← Tillbaka till inspelning
-              </Button>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Ny mall
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Välj mall för ny renskrivning</DialogTitle>
-                  </DialogHeader>
-                  <div className="grid grid-cols-2 gap-4 p-4">
-                    {PROTOCOL_TEMPLATES.map((template) => (
-                      <Card key={template.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
-                        setSelectedTemplate(template.id);
-                        handleReset();
-                      }}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center space-x-3">
-                            <template.icon className="w-6 h-6 text-primary" />
-                            <div>
-                              <h4 className="font-medium">{template.name}</h4>
-                              <p className="text-sm text-muted-foreground">{template.description}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-
-            {/* Protokoll visning */}
-            <Card className="shadow-elegant">
-              <CardHeader>
+            <Card className="apple-card border-0">
+              <CardHeader className="pb-6">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center">
-                    <CheckCircle className="w-5 h-5 mr-2 text-success" />
-                    {selectedTemplateData?.name || 'Protokoll'}
-                  </CardTitle>
-                  <Button onClick={handleSaveProtocol} disabled={!summary}>
-                    Spara protokoll
-                  </Button>
+                  <div>
+                    <CardTitle className="text-xl font-semibold mb-2">
+                      {meetingTitle || selectedTemplateData?.name || 'Protokoll'}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date().toLocaleDateString('sv-SE', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Klart
+                    </Badge>
+                    <Button 
+                      onClick={handleSaveProtocol}
+                      className="apple-button"
+                    >
+                      <FileText className="w-4 h-4 mr-2" />
+                      Spara protokoll
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Titel</label>
-                    <Input
-                      value={meetingTitle}
-                      onChange={(e) => setMeetingTitle(e.target.value)}
-                      placeholder={`Ange en titel för ${selectedTemplateData?.name.toLowerCase() || 'protokollet'}...`}
-                    />
-                  </div>
-                  
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <ReactMarkdown>{summary}</ReactMarkdown>
-                  </div>
+                <div className="prose max-w-none">
+                  <ReactMarkdown>{summary}</ReactMarkdown>
                 </div>
+                
+                {actionItems.length > 0 && (
+                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-medium mb-2">Handlingspoäng:</h4>
+                    <ul className="space-y-1">
+                      {actionItems.map((item, index) => (
+                        <li key={index} className="text-sm">• {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            <div className="flex justify-center">
+              <Button 
+                onClick={handleReset}
+                variant="outline"
+                className="apple-button-outline"
+              >
+                Skapa nytt protokoll
+              </Button>
+            </div>
           </div>
         ) : (
-          <Tabs defaultValue="transcription" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 apple-card bg-muted/40 p-2 h-auto">
-              <TabsTrigger 
-                value="transcription" 
-                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
+          <Tabs defaultValue="record" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 apple-tabs">
+              <TabsTrigger value="record" className="apple-tab">
                 <Mic className="w-4 h-4 mr-2" />
-                Live
+                Spela in
               </TabsTrigger>
-              <TabsTrigger 
-                value="protocol" 
-                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
-                <FileText className="w-4 h-4 mr-2" />
-                Protokoll
-              </TabsTrigger>
-              <TabsTrigger 
-                value="meetings" 
-                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
+              <TabsTrigger value="meetings" className="apple-tab">
                 <Calendar className="w-4 h-4 mr-2" />
-                Mina Möten
+                Mina möten
               </TabsTrigger>
-              <TabsTrigger 
-                value="chat" 
-                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
-              >
+              <TabsTrigger value="chat" className="apple-tab">
                 <MessageSquare className="w-4 h-4 mr-2" />
                 AI Chat
               </TabsTrigger>
             </TabsList>
 
-          {/* Transkribering Tab */}
-          <TabsContent value="transcription" className="space-y-8 mt-8">
-            {/* Inspelningskontroller */}
-            <Card className="apple-card border-0">
-              <CardHeader className="text-center pb-6">
-                <CardTitle className="text-2xl font-semibold tracking-tight">Spela in ditt möte</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-8 px-6 pb-8">
-                <div className="flex justify-center">
-                  <RecordingButton
-                    isRecording={isRecording}
-                    isPaused={false}
-                    audioLevel={audioLevel}
-                    onStartRecording={handleStartRecording}
-                    onStopRecording={handleStopRecording}
-                    onPauseRecording={() => {}}
-                    onResumeRecording={() => {}}
-                    disabled={processingStep === 'summarizing'}
-                  />
-                </div>
-
-                {/* Eller ladda upp en fil */}
-                <div className="text-center">
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-border/40" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-4 text-muted-foreground font-medium tracking-wide">
-                        eller
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-center">
-                  <div className="relative">
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={handleFileUpload}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      disabled={isRecording || processingStep === 'transcribing' || processingStep === 'summarizing'}
-                    />
-                    <Button 
-                      variant="outline" 
-                      disabled={isRecording || processingStep === 'transcribing' || processingStep === 'summarizing'}
-                      className="apple-button bg-muted/30 border-border/40 hover:bg-muted/50 text-foreground font-medium"
-                    >
-                      <Upload className="w-4 h-4 mr-3" />
-                      Ladda upp ljudfil
-                    </Button>
-                  </div>
-                </div>
-
-                {hybridError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{hybridError}</AlertDescription>
-                  </Alert>
-                )}
-
-                {processingStep !== 'idle' && processingStep !== 'error' && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{getStatusMessage()}</span>
-                      <Badge variant={processingStep === 'completed' ? 'default' : 'secondary'}>
-                        {processingStep === 'completed' ? '✓' : <Loader2 className="w-3 h-3 animate-spin" />}
-                      </Badge>
-                    </div>
-                    <Progress value={getProgressValue()} className="h-2" />
-                  </div>
-                )}
-
-                {error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Live Mötesanalys */}
-            {(analysis || isAnalyzing) && (
-              <Card className="border-l-4 border-l-blue-500 shadow-elegant">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Brain className="h-5 w-5" />
-                    Live Mötesanalys
-                    {isAnalyzing && <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {analysis && (
-                    <>
-                      <div>
-                        <strong className="text-sm font-medium">Syfte:</strong>
-                        <p className="text-sm text-muted-foreground">{analysis.purpose}</p>
-                      </div>
-                      <div>
-                        <strong className="text-sm font-medium">Förslag på titel:</strong>
-                        <p className="text-sm text-muted-foreground">{analysis.suggestedTitle}</p>
-                      </div>
-                      {analysis.participants.length > 0 && (
+            <TabsContent value="record" className="space-y-6 mt-8">
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Card className="apple-card border-0">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center text-lg font-semibold">
+                        <Upload className="w-5 h-5 mr-2 text-primary" />
+                        Ladda upp ljudfil
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
                         <div>
-                          <strong className="text-sm font-medium">Deltagare:</strong>
-                          <p className="text-sm text-muted-foreground">{analysis.participants.join(', ')}</p>
+                          <Label htmlFor="audio-file">Välj ljudfil</Label>
+                          <Input
+                            id="audio-file"
+                            type="file"
+                            accept="audio/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setUploadedFile(file);
+                              }
+                            }}
+                            className="mt-2"
+                          />
                         </div>
-                      )}
-                      <div>
-                        <strong className="text-sm font-medium">Uppskattade deltagare:</strong>
-                        <p className="text-sm text-muted-foreground">{analysis.estimatedParticipants} personer</p>
+                        
+                        {uploadedFile && (
+                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium">{uploadedFile.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => handleFileUpload(uploadedFile)}
+                              disabled={isProcessingFile}
+                              className="apple-button"
+                            >
+                              {isProcessingFile ? 'Bearbetar...' : 'Transkribera'}
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div>
-                        <strong className="text-sm font-medium">Rekommenderad mall:</strong>
-                        <p className="text-sm text-muted-foreground">{analysis.suggestedTemplate}</p>
-                      </div>
-                      {analysis.actionPoints.length > 0 && (
+                    </CardContent>
+                  </Card>
+
+                  <Card className="apple-card border-0">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="flex items-center text-lg font-semibold">
+                        <Paperclip className="w-5 h-5 mr-2 text-primary" />
+                        Ladda upp dokument
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
                         <div>
-                          <strong className="text-sm font-medium">Identifierade handlingspunkter:</strong>
-                          <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
-                            {analysis.actionPoints.map((point, index) => (
-                              <li key={index}>{point}</li>
+                          <Label htmlFor="document-file">Välj dokument</Label>
+                          <Input
+                            id="document-file"
+                            type="file"
+                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleDocumentUpload(file);
+                              }
+                            }}
+                            className="mt-2"
+                          />
+                        </div>
+                        
+                        {documents.length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Uppladdade dokument:</p>
+                            {documents.map((doc) => (
+                              <div key={doc.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                                <div>
+                                  <p className="text-sm font-medium">{doc.name}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {doc.uploadedAt.toLocaleDateString('sv-SE')}
+                                  </p>
+                                </div>
+                                <Badge variant="secondary" className="text-xs">
+                                  Tillgängligt
+                                </Badge>
+                              </div>
                             ))}
-                          </ul>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card className="apple-card border-0">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="flex items-center text-lg font-semibold">
+                      {selectedTemplateData?.icon && React.createElement(selectedTemplateData.icon, { className: "w-5 h-5 mr-2 text-primary" })}
+                      Live-inspelning
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="template-select">Välj mötestyp</Label>
+                          <Select 
+                            value={selectedTemplate} 
+                            onValueChange={setSelectedTemplate}
+                          >
+                            <SelectTrigger className="mt-2">
+                              <SelectValue placeholder="Välj mötestyp" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PROTOCOL_TEMPLATES.map((template) => (
+                                <SelectItem key={template.id} value={template.id}>
+                                  <div className="flex items-center">
+                                    <template.icon className="w-4 h-4 mr-2" />
+                                    {template.name}
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        {selectedTemplateData && (
+                          <div className="p-3 bg-muted/50 rounded-lg">
+                            <p className="text-sm font-medium mb-1">{selectedTemplateData.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {selectedTemplateData.description}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-center space-y-4">
+                        <RecordingButton 
+                          isRecording={isRecording}
+                          isPaused={false}
+                          onStartRecording={handleStartRecording}
+                          onStopRecording={handleStopRecording}
+                          onPauseRecording={() => {}}
+                          onResumeRecording={() => {}}
+                          audioLevel={audioLevel}
+                        />
+                        
+                        {isRecording && (
+                          <div className="text-sm text-muted-foreground">
+                            <p>Tryck för att stoppa inspelningen</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Error display */}
+                      {(error || hybridError) && (
+                        <Alert variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            {error || hybridError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {/* Processing display */}
+                      {processingStep !== 'idle' && processingStep !== 'completed' && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">{getStatusMessage()}</span>
+                            <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
+                          </div>
+                          <Progress value={getProgressValue()} className="h-2" />
                         </div>
                       )}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Live Transkribering Display */}
-            {(isRecording || segments.length > 0) && (
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Mic className="w-5 h-5 mr-2" />
-                    Live Transkribering
+                {/* Live transkribering */}
+                <HybridTranscription 
+                  segments={segments}
+                  analysis={analysis}
+                  isAnalyzing={isAnalyzing}
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="meetings" className="space-y-6 mt-8">
+              <Card className="apple-card border-0">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center text-lg font-semibold">
+                    <Calendar className="w-5 h-5 mr-2 text-primary" />
+                    Mina möten
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {segments.map((segment) => (
-                      <div
-                        key={segment.id}
-                        className={`p-3 rounded-lg border ${
-                          segment.isLocal ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(segment.timestamp).toLocaleTimeString('sv-SE')}
-                          </span>
-                          <Badge variant={segment.isLocal ? "secondary" : "default"} className="text-xs">
-                            {segment.isLocal ? "Live" : "AI"}
-                            {segment.confidence && ` (${Math.round(segment.confidence * 100)}%)`}
-                          </Badge>
-                        </div>
-                        <p className="text-sm">{segment.text}</p>
-                      </div>
-                    ))}
-                    {isRecording && segments.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        <Mic className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-                        <p>Lyssnar efter tal...</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-            <HybridTranscription 
-              segments={segments}
-              audioLevel={audioLevel}
-              isActive={isRecording}
-              onStartRecording={handleStartRecording}
-            />
-          </TabsContent>
-
-          {/* Protokoll Tab */}
-          <TabsContent value="protocol" className="space-y-6">
-            {/* Mallval */}
-            <Card className="shadow-elegant">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Settings className="w-5 h-5 mr-2" />
-                  Välj typ av renskrivning
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Välj mall för renskrivning" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROTOCOL_TEMPLATES.map((template) => (
-                      <SelectItem key={template.id} value={template.id}>
-                        <div className="flex items-center">
-                          <template.icon className="w-4 h-4 mr-2" />
-                          <div>
-                            <div className="font-medium">{template.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {template.description}
-                            </div>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {/* Beskrivning av vald mall */}
-                {selectedTemplateData && (
-                  <div className="mt-4 p-4 bg-muted rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <selectedTemplateData.icon className="w-5 h-5 mr-2 text-primary" />
-                      <h4 className="font-semibold">{selectedTemplateData.name}</h4>
+                  {meetings.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">Inga möten än. Börja genom att spela in ett möte.</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedTemplateData.description}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-          </TabsContent>
-
-          {/* Möten Tab */}
-          <TabsContent value="meetings" className="space-y-6">
-            <Card className="shadow-elegant">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Calendar className="w-5 h-5 mr-2" />
-                  Mina inspelade möten
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {meetings.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">Inga möten inspelade än</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Börja spela in ett möte för att se det här
-                    </p>
-                  </div>
-                ) : (
-                  <Accordion type="single" collapsible className="w-full">
-                    {meetings
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((meeting) => (
-                      <AccordionItem key={meeting.id} value={meeting.id} className="border rounded-lg mb-4">
-                        <AccordionTrigger className="hover:no-underline px-4 py-3">
-                          <div className="flex items-center justify-between w-full mr-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="flex items-center space-x-2">
-                                {meeting.status === 'recording' && (
-                                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                                )}
-                                {meeting.status === 'processing' && (
-                                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                                )}
-                                {meeting.status === 'completed' && (
-                                  <CheckCircle className="w-4 h-4 text-green-500" />
-                                )}
-                                <Badge variant={
-                                  meeting.status === 'recording' ? 'destructive' : 
-                                  meeting.status === 'processing' ? 'secondary' : 'default'
-                                }>
-                                  {meeting.status === 'recording' ? 'Spelar in' : 
-                                   meeting.status === 'processing' ? 'Bearbetar' : 'Klart'}
-                                </Badge>
-                              </div>
-                              <div className="text-left">
-                                <h3 className="font-medium">{meeting.title}</h3>
-                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                                  <div className="flex items-center space-x-1">
-                                    <Clock className="w-4 h-4" />
-                                    <span>{meeting.date.toLocaleDateString('sv-SE')}</span>
-                                    <span>{meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
+                  ) : (
+                    <Accordion type="single" collapsible className="w-full">
+                      {meetings.map((meeting) => (
+                        <AccordionItem key={meeting.id} value={meeting.id}>
+                          <AccordionTrigger className="text-left">
+                            <div className="flex items-center justify-between w-full mr-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center space-x-2">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <div>
+                                    <p className="font-medium">{meeting.title}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {meeting.date.toLocaleDateString('sv-SE')} - {meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
                                   </div>
                                 </div>
                               </div>
+                              <div className="flex items-center space-x-2">
+                                <Badge 
+                                  variant={meeting.status === 'completed' ? 'default' : 'secondary'}
+                                  className="text-xs"
+                                >
+                                  {meeting.status === 'completed' ? 'Klart' : 
+                                   meeting.status === 'processing' ? 'Bearbetar' : 'Spelar in'}
+                                </Badge>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteMeeting(meeting.id);
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
-                                onClick={() => deleteMeeting(meeting.id)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="px-4 pb-4">
-                          <Tabs defaultValue="transcription" className="w-full">
-                            <TabsList className="grid w-full grid-cols-3">
-                              <TabsTrigger value="transcription">
-                                <Mic className="w-4 h-4 mr-2" />
-                                Transkribering
-                              </TabsTrigger>
-                              <TabsTrigger value="protocol">
-                                <FileText className="w-4 h-4 mr-2" />
-                                Protokoll
-                              </TabsTrigger>
-                              <TabsTrigger value="chat">
-                                <MessageSquare className="w-4 h-4 mr-2" />
-                                Chat
-                              </TabsTrigger>
-                            </TabsList>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <Tabs defaultValue="summary" className="w-full">
+                              <TabsList className="grid w-full grid-cols-3 apple-tabs">
+                                <TabsTrigger value="summary">Sammanfattning</TabsTrigger>
+                                <TabsTrigger value="transcript">Transkript</TabsTrigger>
+                                <TabsTrigger value="chat">Chat</TabsTrigger>
+                              </TabsList>
+                              
+                              <TabsContent value="summary" className="mt-4">
+                                {meeting.summary ? (
+                                  <div className="prose max-w-none">
+                                    <ReactMarkdown>{meeting.summary}</ReactMarkdown>
+                                  </div>
+                                ) : (
+                                  <p className="text-muted-foreground">Ingen sammanfattning tillgänglig ännu.</p>
+                                )}
+                              </TabsContent>
+                              
+                              <TabsContent value="transcript" className="mt-4">
+                                {meeting.originalTranscription ? (
+                                  <div className="p-4 bg-muted/50 rounded-lg">
+                                    <p className="text-sm whitespace-pre-wrap">{meeting.originalTranscription}</p>
+                                  </div>
+                                ) : (
+                                  <p className="text-muted-foreground">Inget transkript tillgängligt.</p>
+                                )}
+                              </TabsContent>
+                              
+                              <TabsContent value="chat" className="mt-4">
+                                <ChatInterface 
+                                  meetingContext={getMeetingContext(meeting)}
+                                  meetingTitle={meeting.title}
+                                  className="h-[400px]"
+                                />
+                              </TabsContent>
+                            </Tabs>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-                            <TabsContent value="transcription" className="mt-4">
-                              <Card>
-                                <CardHeader>
-                                  <CardTitle className="text-sm">Originaltranskribering</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                  {meeting.originalTranscription ? (
-                                    <div className="text-sm text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
-                                      {meeting.originalTranscription}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                      {meeting.status === 'recording' ? 'Inspelning pågår...' : 
-                                       meeting.status === 'processing' ? 'Bearbetar transkribering...' : 
-                                       'Ingen transkribering tillgänglig'}
-                                    </p>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            </TabsContent>
-
-                            <TabsContent value="protocol" className="mt-4">
-                              <Card>
-                                <CardHeader className="flex flex-row items-center justify-between">
-                                  <CardTitle className="text-sm">Mötesprotokoll</CardTitle>
-                                  {meeting.status === 'completed' && meeting.originalTranscription && (
-                                    <Dialog>
-                                      <DialogTrigger asChild>
-                                        <Button variant="outline" size="sm">
-                                          <Settings className="w-4 h-4 mr-2" />
-                                          Skapa protokoll
-                                        </Button>
-                                      </DialogTrigger>
-                                      <DialogContent className="max-w-2xl">
-                                        <DialogHeader>
-                                          <DialogTitle>Välj mall för protokoll</DialogTitle>
-                                        </DialogHeader>
-                                        <div className="grid grid-cols-2 gap-4 p-4">
-                                          {PROTOCOL_TEMPLATES.map((template) => (
-                                            <Card key={template.id} className="cursor-pointer hover:bg-muted/50" onClick={async () => {
-                                              try {
-                                                setProcessingStep('summarizing');
-                                                const summaryResult = await bergetApi.summarizeToProtocol(
-                                                  meeting.originalTranscription!, 
-                                                  template.systemPrompt
-                                                );
-                                                
-                                                // Uppdatera mötet med det nya protokollet
-                                                const updatedMeetings = meetings.map(m => 
-                                                  m.id === meeting.id ? { 
-                                                    ...m, 
-                                                    summary: summaryResult.summary,
-                                                    actionItems: summaryResult.action_items || [],
-                                                    templateType: template.id
-                                                  } : m
-                                                );
-                                                setMeetings(updatedMeetings);
-                                                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
-                                                
-                                                setProcessingStep('completed');
-                                                toast({
-                                                  title: "Protokoll skapat! 🎉",
-                                                  description: `${template.name} har skapats för mötet.`,
-                                                });
-                                              } catch (err: any) {
-                                                setError(err.message);
-                                                setProcessingStep('error');
-                                                toast({
-                                                  title: "Fel uppstod",
-                                                  description: err.message,
-                                                  variant: "destructive"
-                                                });
-                                              }
-                                            }}>
-                                              <CardContent className="p-4">
-                                                <div className="flex items-center space-x-3">
-                                                  <template.icon className="w-6 h-6 text-primary" />
-                                                  <div>
-                                                    <h4 className="font-medium">{template.name}</h4>
-                                                    <p className="text-sm text-muted-foreground">{template.description}</p>
-                                                  </div>
-                                                </div>
-                                              </CardContent>
-                                            </Card>
-                                          ))}
-                                        </div>
-                                      </DialogContent>
-                                    </Dialog>
-                                  )}
-                                </CardHeader>
-                                <CardContent>
-                                  {meeting.summary ? (
-                                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                                      <ReactMarkdown>{meeting.summary}</ReactMarkdown>
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                      {meeting.status === 'recording' ? 'Inspelning pågår...' : 
-                                       meeting.status === 'processing' ? 'Skapar protokoll...' : 
-                                       meeting.originalTranscription ? 'Klicka på "Skapa protokoll" för att välja mall och skapa protokoll' :
-                                       'Inget protokoll tillgängligt'}
-                                    </p>
-                                  )}
-                                </CardContent>
-                              </Card>
-                            </TabsContent>
-
-                            <TabsContent value="chat" className="mt-4">
-                              <ChatInterface
-                                meetingContext={meeting.originalTranscription || meeting.summary}
-                                meetingTitle={meeting.title}
-                                className="h-[400px]"
-                              />
-                            </TabsContent>
-                          </Tabs>
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Global AI Chat Tab */}
-          <TabsContent value="chat" className="space-y-6 mt-8">
-            <div className="space-y-6">
-              <div className="text-center space-y-2">
-                <h2 className="text-2xl font-semibold tracking-tight">AI-assistent</h2>
-                <p className="text-muted-foreground">Ställ frågor om dina möten, protokoll och mötesplanering</p>
+            <TabsContent value="chat" className="space-y-6 mt-8">
+              <div className="space-y-6">
+                <div className="text-center space-y-2">
+                  <h2 className="text-2xl font-semibold tracking-tight">AI-assistent</h2>
+                  <p className="text-muted-foreground">Ställ frågor om dina möten, protokoll och mötesplanering</p>
+                </div>
+                
+                <ChatInterface 
+                  meetingContext={getGlobalContext()}
+                  className="h-[600px]"
+                />
               </div>
-              
-              <ChatInterface className="mx-auto" />
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </div>
