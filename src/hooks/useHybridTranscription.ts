@@ -151,7 +151,25 @@ export const useHybridTranscription = (
         // Vanligt, behöver inte visa fel
         return;
       }
-      setError(`Taligenkänning: ${event.error}`);
+      
+      // Förbättrade felmeddelanden
+      const errorMessages: Record<string, string> = {
+        'network': 'Nätverksfel - kontrollera internetanslutning',
+        'not-allowed': 'Mikrofon inte tillåten - kontrollera behörigheter',
+        'service-not-allowed': 'Taligenkänning blockerad av säkerhetsinställningar',
+        'bad-grammar': 'Grammatikfel i taligenkänning',
+        'language-not-supported': 'Svenska stöds inte',
+        'no-speech': 'Inget tal upptäckt',
+        'audio-capture': 'Mikrofonfel - kontrollera enheten'
+      };
+      
+      const message = errorMessages[event.error] || `Taligenkänning: ${event.error}`;
+      setError(message);
+      
+      // Vid nätverksfel, fortsätt med endast Berget AI
+      if (event.error === 'network') {
+        console.log('Växlar till endast Berget AI på grund av nätverksfel');
+      }
     };
 
     return recognition;
