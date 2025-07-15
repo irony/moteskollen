@@ -94,11 +94,10 @@ class BergetApiService {
 
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-large-v3');
+    formData.append('model', 'whisper-large-v3-turbo');
     formData.append('language', 'sv');
-    formData.append('response_format', 'json');
 
-    const response = await fetch(`${this.baseUrl}/audio/transcriptions`, {
+    const response = await fetch(`${this.baseUrl}/v1/audio/transcriptions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
@@ -107,7 +106,8 @@ class BergetApiService {
     });
 
     if (!response.ok) {
-      throw new Error('Transkribering misslyckades');
+      const errorText = await response.text();
+      throw new Error(`Transkribering misslyckades: ${response.status} - ${errorText}`);
     }
 
     return response.json();
@@ -119,7 +119,7 @@ class BergetApiService {
       throw new Error('API-nyckel saknas');
     }
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,
