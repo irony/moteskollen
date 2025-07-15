@@ -32,7 +32,8 @@ import {
   Trash2,
   MessageSquare,
   ChevronDown,
-  Brain
+  Brain,
+  Upload
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -142,6 +143,58 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   } = useHybridTranscription(handleBergetTranscription);
 
   const { analysis, isAnalyzing, analyzeTranscription } = useMeetingAnalysis();
+
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Kontrollera filtyp
+    if (!file.type.startsWith('audio/')) {
+      toast({
+        title: "Ogiltigt filformat",
+        description: "Vänligen ladda upp en ljudfil.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setError(null);
+      setProcessingStep('transcribing');
+      
+      // Skapa nytt möte för uppladdad fil
+      const newMeeting: Meeting = {
+        id: Date.now().toString(),
+        date: new Date(),
+        title: `Uppladdat möte ${new Date().toLocaleDateString('sv-SE')} ${new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}`,
+        status: 'processing'
+      };
+      
+      const updatedMeetings = [...meetings, newMeeting];
+      setMeetings(updatedMeetings);
+      setCurrentMeetingId(newMeeting.id);
+      localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+
+      // Transkribera filen med Berget AI
+      const transcriptionResult = await bergetApi.transcribeAudio(file);
+      setFullTranscription(transcriptionResult.text);
+      
+      // Bearbeta transkriberingen direkt
+      await processTranscription(transcriptionResult.text);
+      
+    } catch (err: any) {
+      setError(err.message);
+      setProcessingStep('error');
+      toast({
+        title: "Fel vid uppladdning",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
+
+    // Rensa input
+    event.target.value = '';
+  }, [meetings, toast]);
 
   const handleStartRecording = useCallback(async () => {
     setError(null);
@@ -465,6 +518,40 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                     onResumeRecording={() => {}}
                     disabled={processingStep === 'summarizing'}
                   />
+                </div>
+
+                {/* Eller ladda upp en fil */}
+                <div className="text-center">
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        eller
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleFileUpload}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      disabled={isRecording || processingStep === 'transcribing' || processingStep === 'summarizing'}
+                    />
+                    <Button 
+                      variant="outline" 
+                      disabled={isRecording || processingStep === 'transcribing' || processingStep === 'summarizing'}
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Ladda upp ljudfil
+                    </Button>
+                  </div>
                 </div>
 
                 {hybridError && (
