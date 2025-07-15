@@ -1,5 +1,6 @@
 interface BergetAuthResponse {
   access_token?: string;
+  token?: string;
   expires_in?: number;
   refresh_token?: string;
   token_type?: string;
@@ -78,8 +79,9 @@ class BergetApiService {
     const tokenData = await response.json();
     
     // Om vi får en token, spara den
-    if (tokenData.access_token) {
-      this.setApiKey(tokenData.access_token);
+    if (tokenData.access_token || tokenData.token) {
+      const token = tokenData.access_token || tokenData.token;
+      this.setApiKey(token);
     }
     
     return tokenData;

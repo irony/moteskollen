@@ -50,9 +50,10 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
       try {
         const response = await bergetApi.getAccessToken(deviceCode);
 
-        if (response.access_token) {
+        if (response.access_token || response.token) {
           // Token erhållen - autentisering klar
-          localStorage.setItem('berget_token', response.access_token);
+          const token = response.access_token || response.token;
+          localStorage.setItem('berget_token', token);
           if (response.refresh_token) {
             localStorage.setItem('berget_refresh_token', response.refresh_token);
           }
