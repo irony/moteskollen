@@ -127,42 +127,136 @@ class BergetApiService {
       throw new Error('API-nyckel saknas');
     }
 
-    // Konvertera blob till base64
-    const base64Data = await this.blobToBase64(documentBlob);
-    const mimeType = documentBlob.type || 'application/octet-stream';
-    const dataUrl = `data:${mimeType};base64,${base64Data}`;
-
-    const response = await fetch(`${this.baseUrl}/v1/ocr`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'docling-v1',
-        document: {
-          url: dataUrl,
-          type: 'document'
-        },
-        async: false, // Synkron bearbetning
-        options: {
-          tableMode: 'accurate',
-          ocrMethod: 'easyocr',
-          doOcr: true,
-          doTableStructure: true,
-          outputFormat: 'md',
-          includeImages: false
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OCR misslyckades: ${response.status} - ${errorText}`);
+    // Kontrollera filstorlek (max 10MB)
+    if (documentBlob.size > 10 * 1024 * 1024) {
+      throw new Error('Filen är för stor. Max storlek är 10MB.');
     }
 
-    const result = await response.json();
-    return { text: result.content };
+    // Kontrollera filtyp
+    const supportedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/msword',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'image/jpg'
+    ];
+    
+    if (!supportedTypes.includes(documentBlob.type)) {
+      throw new Error(`Filtyp ${documentBlob.type} stöds inte. Använd PDF, DOC, DOCX, TXT, JPG eller PNG.`);
+    }
+
+    console.log(`Processar dokument: ${documentBlob.type}, storlek: ${(documentBlob.size / 1024).toFixed(1)}KB`);
+
+    try {
+      // Konvertera blob till base64
+      const base64Data = await this.blobToBase64(documentBlob);
+      const mimeType = documentBlob.type || 'application/octet-stream';
+      const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
+      console.log('Skickar OCR-begäran...');
+
+      // Försök med async processing för större filer
+      const useAsync = documentBlob.size > 1024 * 1024; // 1MB
+
+      const response = await fetch(`${this.baseUrl}/v1/ocr`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'docling-v1',
+          document: {
+            url: dataUrl,
+            type: 'document'
+          },
+          async: useAsync,
+          options: {
+            tableMode: 'fast', // Använd 'fast' istället för 'accurate' för bättre prestanda
+            ocrMethod: 'easyocr',
+            doOcr: true,
+            doTableStructure: true,
+            outputFormat: 'md',
+            includeImages: false
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = `OCR misslyckades: ${response.status}`;
+        
+        try {
+          const errorObj = JSON.parse(errorText);
+          errorMessage += ` - ${errorObj.error?.message || errorText}`;
+        } catch {
+          errorMessage += ` - ${errorText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      if (useAsync) {
+        // Hantera asynkron bearbetning
+        return await this.pollForOCRResult(result.resultUrl);
+      } else {
+        return { text: result.content };
+      }
+
+    } catch (error: any) {
+      console.error('OCR-fel:', error);
+      
+      // Ge mer specifika felmeddelanden
+      if (error.message.includes('413')) {
+        throw new Error('Filen är för stor för servern att bearbeta.');
+      } else if (error.message.includes('timeout')) {
+        throw new Error('Timeout vid bearbetning. Försök med en mindre fil.');
+      } else if (error.message.includes('OCR_SERVICE_ERROR')) {
+        throw new Error('OCR-tjänsten kunde inte bearbeta dokumentet. Kontrollera att filen inte är korrupt.');
+      }
+      
+      throw error;
+    }
+  }
+
+  // Polla för asynkrona OCR-resultat
+  private async pollForOCRResult(resultUrl: string): Promise<{ text: string }> {
+    const maxAttempts = 30; // Max 30 försök (ca 1 minut)
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        const response = await fetch(resultUrl, {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+          }
+        });
+
+        if (response.status === 200) {
+          const result = await response.json();
+          return { text: result.content };
+        } else if (response.status === 202) {
+          // Fortfarande bearbetar
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '2');
+          await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+          attempts++;
+        } else {
+          throw new Error(`Fel vid hämtning av resultat: ${response.status}`);
+        }
+      } catch (error) {
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('Timeout vid väntan på OCR-resultat');
+        }
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    throw new Error('Timeout vid väntan på OCR-resultat');
   }
 
   // Hjälpfunktion för att konvertera blob till base64
