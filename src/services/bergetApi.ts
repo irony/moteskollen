@@ -1,8 +1,10 @@
 interface BergetAuthResponse {
-  access_token: string;
-  expires_in: number;
-  refresh_token: string;
-  token_type: string;
+  access_token?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  token_type?: string;
+  status?: string;
+  error?: string;
 }
 
 interface TranscriptionResponse {
@@ -38,46 +40,48 @@ class BergetApiService {
   }
 
   // Device Token Flow för att skapa konto/logga in
-  async initiateDeviceAuth(): Promise<{ device_code: string; user_code: string; verification_uri: string }> {
-    const response = await fetch(`${this.baseUrl}/auth/device`, {
+  async initiateDeviceAuth(): Promise<{ device_code: string; user_code: string; verification_uri: string; interval: number; expires_in: number }> {
+    const response = await fetch(`${this.baseUrl}/v1/auth/device`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        client_id: 'protokoll-klippare',
-        scope: 'api transcription'
-      })
+      }
     });
 
     if (!response.ok) {
-      throw new Error('Kunde inte initiera enhetsautentisering');
+      const errorText = await response.text();
+      throw new Error(`Device auth error: ${response.status} - ${errorText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      device_code: data.device_code,
+      user_code: data.user_code,
+      verification_uri: data.verification_url,
+      interval: data.interval,
+      expires_in: data.expires_in
+    };
   }
 
   // Hämta access token med device code
   async getAccessToken(deviceCode: string): Promise<BergetAuthResponse> {
-    const response = await fetch(`${this.baseUrl}/auth/token`, {
+    const response = await fetch(`${this.baseUrl}/v1/auth/device/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        device_code: deviceCode,
-        client_id: 'protokoll-klippare'
+        device_code: deviceCode
       })
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Kunde inte hämta access token');
-    }
-
     const tokenData = await response.json();
-    this.setApiKey(tokenData.access_token);
+    
+    // Om vi får en token, spara den
+    if (tokenData.access_token) {
+      this.setApiKey(tokenData.access_token);
+    }
+    
     return tokenData;
   }
 

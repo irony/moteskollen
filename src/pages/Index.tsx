@@ -11,9 +11,9 @@ const Index = () => {
 
   useEffect(() => {
     // Kontrollera om användaren redan är autentiserad
-    const keycloakToken = localStorage.getItem('keycloak_token');
+    const bergetToken = localStorage.getItem('berget_token');
     const apiKey = bergetApi.getApiKey();
-    if (keycloakToken || apiKey) {
+    if (bergetToken || apiKey) {
       setAppState('main');
     }
   }, []);
@@ -23,9 +23,9 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    // Rensa både Keycloak och Berget API tokens
-    localStorage.removeItem('keycloak_token');
-    localStorage.removeItem('keycloak_refresh_token');
+    // Rensa Berget API tokens
+    localStorage.removeItem('berget_token');
+    localStorage.removeItem('berget_refresh_token');
     bergetApi.clearApiKey();
     setAppState('auth');
   };

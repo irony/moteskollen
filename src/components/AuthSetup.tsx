@@ -6,13 +6,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ExternalLink, Shield, Key } from 'lucide-react';
 import { bergetApi } from '@/services/bergetApi';
 
-// Keycloak konfiguration
-const KEYCLOAK_CONFIG = {
-  baseUrl: 'https://keycloak.berget.ai',
-  realm: 'berget',
-  clientId: 'moteskollen'
-};
-
 interface AuthSetupProps {
   onAuthenticated: () => void;
 }
@@ -21,104 +14,74 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<'choice' | 'device' | 'manual'>('choice');
-  const [deviceAuthData, setDeviceAuthData] = useState<any>(null);
+  const [deviceAuth, setDeviceAuth] = useState<{
+    device_code: string;
+    user_code: string;
+    verification_uri: string;
+    interval: number;
+    expires_in: number;
+  } | null>(null);
   const [manualKey, setManualKey] = useState('');
 
-  const startDeviceAuth = async () => {
-    setLoading(true);
-    setError(null);
+  const startDeviceAuth = async (): Promise<void> => {
     try {
-      // Keycloak device flow endpoint
-      const deviceEndpoint = `${KEYCLOAK_CONFIG.baseUrl}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/auth/device`;
-      
-      const response = await fetch(deviceEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: KEYCLOAK_CONFIG.clientId,
-        }),
-      });
+      setLoading(true);
+      setError('');
 
-      if (!response.ok) {
-        throw new Error('Kunde inte starta enhetsautentisering');
-      }
-
-      const authData = await response.json();
-      setDeviceAuthData(authData);
+      const authData = await bergetApi.initiateDeviceAuth();
+      setDeviceAuth(authData);
       setStep('device');
-      
-      // Starta polling för att vänta på användarens godkännande
-      pollForToken(authData.device_code);
-    } catch (err) {
-      setError('Kunde inte starta enhetsautentisering');
+
+      // Starta polling för token
+      pollForToken(authData.device_code, authData.interval);
+    } catch (err: any) {
+      setError(`Fel vid startande av autentisering: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const pollForToken = async (deviceCode: string) => {
-    const maxAttempts = 30; // 5 minuter med 10 sekunders intervall
+  const pollForToken = async (deviceCode: string, pollingInterval: number): Promise<void> => {
     let attempts = 0;
+    const maxAttempts = 60; // Ungefär 5 minuter
+    const interval = pollingInterval * 1000; // Konvertera till millisekunder
 
     const poll = async () => {
       try {
-        const tokenEndpoint = `${KEYCLOAK_CONFIG.baseUrl}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/token`;
-        
-        const response = await fetch(tokenEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-            device_code: deviceCode,
-            client_id: KEYCLOAK_CONFIG.clientId,
-          }),
-        });
+        const response = await bergetApi.getAccessToken(deviceCode);
 
-        const data = await response.json();
-
-        if (response.ok && data.access_token) {
-          // Spara Keycloak token temporärt
-          const keycloakToken = data.access_token;
-          
-          try {
-            // Använd Keycloak token för att skapa Berget API-nyckel
-            await bergetApi.createApiKeyWithKeycloak(keycloakToken);
-            
-            // Spara Keycloak token för eventuell refresh
-            localStorage.setItem('keycloak_token', keycloakToken);
-            if (data.refresh_token) {
-              localStorage.setItem('keycloak_refresh_token', data.refresh_token);
-            }
-            
-            onAuthenticated();
-          } catch (apiError: any) {
-            setError(`Kunde inte skapa API-nyckel: ${apiError.message}`);
-            setStep('choice');
+        if (response.access_token) {
+          // Token erhållen - autentisering klar
+          localStorage.setItem('berget_token', response.access_token);
+          if (response.refresh_token) {
+            localStorage.setItem('berget_refresh_token', response.refresh_token);
           }
-        } else if (data.error === 'authorization_pending') {
+          onAuthenticated();
+        } else if (response.status === 'pending') {
+          // Väntar fortfarande på användarens godkännande
           attempts++;
           if (attempts < maxAttempts) {
-            setTimeout(poll, 5000); // Försök igen om 5 sekunder
+            setTimeout(poll, interval);
           } else {
-            setError('Tidsgränsen för autentisering har löpt ut. Försök igen.');
+            setError('Autentisering tog för lång tid. Försök igen.');
             setStep('choice');
           }
-        } else if (data.error === 'slow_down') {
-          setTimeout(poll, 10000); // Vänta lite längre
         } else {
-          setError(`Autentisering misslyckades: ${data.error_description || data.error}`);
+          setError(`Autentiseringsfel: ${response.error || 'Okänt fel'}`);
           setStep('choice');
         }
       } catch (err: any) {
-        attempts++;
-        if (attempts < maxAttempts) {
-          setTimeout(poll, 5000);
+        if (err.message.includes('429')) {
+          // För många förfrågningar - vänta längre
+          attempts++;
+          if (attempts < maxAttempts) {
+            setTimeout(poll, interval + 2000);
+          } else {
+            setError('Autentisering tog för lång tid. Försök igen.');
+            setStep('choice');
+          }
         } else {
-          setError(`Autentisering misslyckades: ${err.message}`);
+          setError(`Nätverksfel: ${err.message}`);
           setStep('choice');
         }
       }
@@ -127,14 +90,18 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
     poll();
   };
 
-  const handleManualKey = () => {
+  const handleManualKey = (): void => {
     if (!manualKey.trim()) {
       setError('Ange en giltig API-nyckel');
       return;
     }
 
-    bergetApi.setApiKey(manualKey.trim());
-    onAuthenticated();
+    try {
+      bergetApi.setApiKey(manualKey.trim());
+      onAuthenticated();
+    } catch (err: any) {
+      setError(`Fel vid API-nyckel: ${err.message}`);
+    }
   };
 
   return (
@@ -166,7 +133,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             <div className="space-y-4">
               <h3 className="font-semibold">Kom igång med Berget AI</h3>
               
-                <Button 
+              <Button 
                 onClick={startDeviceAuth}
                 disabled={loading}
                 className="w-full"
@@ -177,7 +144,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
                 ) : (
                   <ExternalLink className="w-4 h-4 mr-2" />
                 )}
-                Logga in med Keycloak
+                Logga in med Berget AI
               </Button>
 
               <div className="text-center">
@@ -194,7 +161,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             </div>
           )}
 
-          {step === 'device' && deviceAuthData && (
+          {step === 'device' && deviceAuth && (
             <div className="space-y-4 text-center">
               <div className="space-y-2">
                 <h3 className="font-semibold">Slutför autentisering</h3>
@@ -205,18 +172,18 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
 
               <div className="bg-muted p-4 rounded-lg">
                 <p className="font-mono text-2xl font-bold">
-                  {deviceAuthData.user_code}
+                  {deviceAuth.user_code}
                 </p>
               </div>
 
               <Button asChild className="w-full">
                 <a 
-                  href={deviceAuthData.verification_uri_complete || deviceAuthData.verification_uri} 
+                  href={deviceAuth.verification_uri} 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Öppna Keycloak
+                  Öppna Berget AI
                 </a>
               </Button>
 
