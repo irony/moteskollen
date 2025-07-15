@@ -476,7 +476,46 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
               </CardContent>
             </Card>
 
-            {/* Hybrid Live Transkribering */}
+            {/* Live Transkribering Display */}
+            {(isRecording || segments.length > 0) && (
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Mic className="w-5 h-5 mr-2" />
+                    Live Transkribering
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {segments.map((segment) => (
+                      <div
+                        key={segment.id}
+                        className={`p-3 rounded-lg border ${
+                          segment.isLocal ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(segment.timestamp).toLocaleTimeString('sv-SE')}
+                          </span>
+                          <Badge variant={segment.isLocal ? "secondary" : "default"} className="text-xs">
+                            {segment.isLocal ? "Live" : "AI"}
+                            {segment.confidence && ` (${Math.round(segment.confidence * 100)}%)`}
+                          </Badge>
+                        </div>
+                        <p className="text-sm">{segment.text}</p>
+                      </div>
+                    ))}
+                    {isRecording && segments.length === 0 && (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Mic className="w-8 h-8 mx-auto mb-2 animate-pulse" />
+                        <p>Lyssnar efter tal...</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             <HybridTranscription 
               segments={segments}
               audioLevel={audioLevel}
