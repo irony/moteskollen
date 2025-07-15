@@ -1,5 +1,25 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import '@/types/speech';
+
+// Speech Recognition types (inline för att undvika import-problem)
+interface SpeechRecognitionEvent extends Event {
+  readonly resultIndex: number;
+  readonly results: {
+    readonly length: number;
+    [index: number]: {
+      readonly isFinal: boolean;
+      readonly length: number;
+      [index: number]: {
+        readonly transcript: string;
+        readonly confidence: number;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  readonly error: string;
+  readonly message: string;
+}
 
 interface TranscriptionSegment {
   id: string;
@@ -54,7 +74,7 @@ export const useHybridTranscription = (
 
     let pendingSegmentId: string | null = null;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const lastResult = event.results[event.results.length - 1];
       const transcript = lastResult[0].transcript;
       const confidence = lastResult[0].confidence;
@@ -125,7 +145,7 @@ export const useHybridTranscription = (
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech') {
         // Vanligt, behöver inte visa fel
