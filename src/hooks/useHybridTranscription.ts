@@ -57,6 +57,9 @@ export const useHybridTranscription = (
   const audioChunksRef = useRef<Blob[]>([]);
   const segmentStartTimeRef = useRef<number>(0);
   const recordingStartTimeRef = useRef<number>(0);
+  const sentSegmentsRef = useRef<Set<string>>(new Set());
+  const segmentAudioRef = useRef<Map<string, Blob[]>>(new Map());
+  const currentSegmentChunksRef = useRef<Blob[]>([]);
 
   // Kontrollera Speech API support
   const speechSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -88,6 +91,11 @@ export const useHybridTranscription = (
         // Final resultat - skapa eller uppdatera segment
         const segmentId = pendingSegmentId || Date.now().toString();
         
+        // Spara audio-chunks för detta segment
+        if (currentSegmentChunksRef.current.length > 0) {
+          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
+        }
+        
         setSegments(prev => {
           const existingIndex = prev.findIndex(s => s.id === segmentId);
           const newSegment: TranscriptionSegment = {
@@ -109,8 +117,9 @@ export const useHybridTranscription = (
           }
         });
 
-        // Skicka ljudsegment till Berget AI för förbättring
-        if (transcript.trim().length > 10) { // Endast för meningsfulla segment
+        // Skicka ljudsegment till Berget AI för förbättring (bara om vi inte redan skickat det)
+        if (transcript.trim().length > 10 && !sentSegmentsRef.current.has(segmentId)) {
+          sentSegmentsRef.current.add(segmentId);
           sendAudioSegmentToBerget(segmentId, segmentStartTimeRef.current, audioTime);
         }
 
@@ -118,6 +127,7 @@ export const useHybridTranscription = (
         segmentStartTimeRef.current = audioTime;
         pendingSegmentId = null;
         currentInterimText = '';
+        currentSegmentChunksRef.current = [];
 
       } else {
         // Interim resultat - bygg ihop texten progressivt
@@ -182,12 +192,19 @@ export const useHybridTranscription = (
 
   const sendAudioSegmentToBerget = async (segmentId: string, startTime: number, endTime: number) => {
     try {
-      // Hitta motsvarande ljuddata
-      const segmentDuration = endTime - startTime;
-      if (segmentDuration < 1 || !audioChunksRef.current.length) return;
+      // Hämta audio-chunks för just detta segment
+      const segmentChunks = segmentAudioRef.current.get(segmentId);
+      if (!segmentChunks || segmentChunks.length === 0) {
+        console.log('Inga audio-chunks för segment:', segmentId);
+        return;
+      }
 
-      // Skapa blob från aktuella chunks (förenklad - i produktion skulle vi vilja ha exakt segment)
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const segmentDuration = endTime - startTime;
+      if (segmentDuration < 1) return;
+
+      // Skapa blob från detta segments chunks
+      const audioBlob = new Blob(segmentChunks, { type: 'audio/webm' });
+      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes)`);
       
       // Importera bergetApi dynamiskt för att undvika cirkulär import
       const { bergetApi } = await import('@/services/bergetApi');
@@ -280,10 +297,13 @@ export const useHybridTranscription = (
       });
 
       audioChunksRef.current = [];
+      currentSegmentChunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          // Lägg till chunks till aktuellt segment också
+          currentSegmentChunksRef.current.push(event.data);
         }
       };
 
@@ -327,6 +347,9 @@ export const useHybridTranscription = (
     }
 
     // Rensa resurser
+    sentSegmentsRef.current.clear();
+    segmentAudioRef.current.clear();
+    audioChunksRef.current = [];
     if (audioContextRef.current) {
       audioContextRef.current.close();
     }
