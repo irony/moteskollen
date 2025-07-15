@@ -47,17 +47,20 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       badge: meetingsCount > 0 ? meetingsCount.toString() : undefined
     },
     {
-      id: 'chat',
-      title: 'AI-assistent',
+      id: 'search',
+      title: 'Sök & AI-chat',
       icon: MessageSquare,
       action: () => {
-        // Scrolla till chat-sektionen
-        const chatElement = document.querySelector('[data-section="chat"]');
-        if (chatElement) {
-          chatElement.scrollIntoView({ behavior: 'smooth' });
-        }
-      }
-    }
+        // Trigga Cmd+K event
+        const event = new KeyboardEvent('keydown', {
+          key: 'k',
+          metaKey: true,
+          bubbles: true
+        });
+        document.dispatchEvent(event);
+      },
+      description: 'Tryck Cmd+K'
+    },
   ];
 
   const settingsItems = [

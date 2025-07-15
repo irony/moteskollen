@@ -48,6 +48,7 @@ import { ChatInterface } from './ChatInterface';
 import { FooterWithRecording } from './FooterWithRecording';
 import { HistoryDrawer } from './HistoryDrawer';
 import { AppSidebar } from './AppSidebar';
+import { GlobalSearch } from './GlobalSearch';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -483,13 +484,24 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                   </div>
                 </div>
                 
-                {/* Visuell indikator för antal möten (endast desktop) */}
-                <div className="hidden md:flex items-center space-x-2">
-                  {meetings.length > 0 && (
-                    <Badge variant="outline" className="text-xs">
-                      {meetings.length} möten
-                    </Badge>
-                  )}
+                {/* Global sökruta och visuell indikator */}
+                <div className="flex items-center space-x-4">
+                  <GlobalSearch
+                    onShowHistory={handleShowHistory}
+                    onStartRecording={handleStartRecording}
+                    onFileUpload={handleFileUpload}
+                    meetingContext={selectedMeeting ? getMeetingContext(selectedMeeting) : getGlobalContext()}
+                    meetingsCount={meetings.length}
+                  />
+                  
+                  {/* Visuell indikator för antal möten (endast desktop) */}
+                  <div className="hidden lg:flex items-center space-x-2">
+                    {meetings.length > 0 && (
+                      <Badge variant="outline" className="text-xs">
+                        {meetings.length} möten
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -541,22 +553,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
               </div>
             )}
 
-            {/* Chat-sektion för AI-assistent */}
-            <div data-section="chat" className="space-y-4">
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <MessageSquare className="w-5 h-5" />
-                    <span>AI-assistent</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChatInterface 
-                    meetingContext={selectedMeeting ? getMeetingContext(selectedMeeting) : getGlobalContext()}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+            {/* Ingen chat-sektion här längre - nu tillgänglig via Cmd+K */}
           </div>
 
           {/* Apple-style Footer med inspelningsknapp */}
