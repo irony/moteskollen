@@ -723,8 +723,9 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 {/* Live transkribering */}
                 <HybridTranscription 
                   segments={segments}
-                  analysis={analysis}
-                  isAnalyzing={isAnalyzing}
+                  audioLevel={audioLevel}
+                  isActive={isRecording}
+                  onStartRecording={handleStartRecording}
                 />
               </div>
             </TabsContent>
