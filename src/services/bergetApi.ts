@@ -127,66 +127,60 @@ class BergetApiService {
       throw new Error('API-nyckel saknas');
     }
 
-    // Först ladda upp filen för att få en URL (om API:et kräver det)
-    // Alternativt kan vi skicka den som base64
-    const formData = new FormData();
-    formData.append('file', documentBlob);
+    // Konvertera blob till base64
+    const base64Data = await this.blobToBase64(documentBlob);
+    const mimeType = documentBlob.type || 'application/octet-stream';
+    const dataUrl = `data:${mimeType};base64,${base64Data}`;
 
-    // Försök först att ladda upp filen (om det finns en upload endpoint)
-    // Annars kan vi behöva konvertera till base64 eller hitta ett annat sätt
-    
-    try {
-      const response = await fetch(`${this.baseUrl}/v1/ocr`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+    const response = await fetch(`${this.baseUrl}/v1/ocr`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'docling-v1',
+        document: {
+          url: dataUrl,
+          type: 'document'
         },
-        body: JSON.stringify({
-          model: 'docling-v1',
-          document: {
-            // För nu använder vi en placeholder URL - detta behöver fixas
-            url: 'placeholder-url', 
-            type: 'document'
-          },
-          async: false, // Synkron bearbetning
-          options: {
-            tableMode: 'accurate',
-            ocrMethod: 'easyocr',
-            doOcr: true,
-            doTableStructure: true,
-            outputFormat: 'md',
-            includeImages: false
-          }
-        })
-      });
+        async: false, // Synkron bearbetning
+        options: {
+          tableMode: 'accurate',
+          ocrMethod: 'easyocr',
+          doOcr: true,
+          doTableStructure: true,
+          outputFormat: 'md',
+          includeImages: false
+        }
+      })
+    });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`OCR misslyckades: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      return { text: result.content };
-
-    } catch (error) {
-      // Fallback: försök med FormData om JSON inte fungerar
-      const formResponse = await fetch(`${this.baseUrl}/v1/ocr`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: formData
-      });
-
-      if (!formResponse.ok) {
-        const errorText = await formResponse.text();
-        throw new Error(`OCR misslyckades: ${formResponse.status} - ${errorText}`);
-      }
-
-      const result = await formResponse.json();
-      return { text: result.content };
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`OCR misslyckades: ${response.status} - ${errorText}`);
     }
+
+    const result = await response.json();
+    return { text: result.content };
+  }
+
+  // Hjälpfunktion för att konvertera blob till base64
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          // Ta bort "data:mime/type;base64," prefix
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        } else {
+          reject(new Error('Kunde inte konvertera fil till base64'));
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   // Summera och städa text till protokoll
