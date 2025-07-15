@@ -78,14 +78,7 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
                   <div key={segment?.id || `empty-${index}`} className="min-h-[36px] flex items-end">
                     {segment ? (
                       <div className="flex items-center gap-3 w-full">
-                        <div className="flex-shrink-0 mb-1">
-                          {segment.isLocal ? (
-                            <Zap className="w-5 h-5 text-blue-400 drop-shadow-lg" />
-                          ) : (
-                            <Globe className="w-5 h-5 text-green-400 drop-shadow-lg" />
-                          )}
-                        </div>
-                        
+                        {/* Text med stark kontrast och skugga */}
                         <div className="flex-1">
                           <p className={`text-xl font-bold leading-tight transition-all duration-300 drop-shadow-2xl ${
                             index === displaySegments.length - 1 
