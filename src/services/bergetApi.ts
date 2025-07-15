@@ -94,7 +94,6 @@ class BergetApiService {
 
     const formData = new FormData();
     formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-large-v3-turbo');
     formData.append('language', 'sv');
 
     const response = await fetch(`${this.baseUrl}/v1/audio/transcriptions`, {
