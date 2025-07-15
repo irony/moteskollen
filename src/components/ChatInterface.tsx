@@ -6,6 +6,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, Bot, User } from 'lucide-react';
 import { bergetApi } from '@/services/bergetApi';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatMessage {
   id: string;
@@ -105,8 +107,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       </CardHeader>
       
       <CardContent className="flex-1 flex flex-col p-0">
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-4 pb-4">
+        <ScrollArea className="flex-1 h-full">
+          <div className="space-y-4 pb-4 px-6">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -114,7 +116,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   message.role === 'user' ? 'flex-row-reverse space-x-reverse' : ''
                 }`}
               >
-                <div className={`p-2 rounded-full ${
+                <div className={`p-2 rounded-full flex-shrink-0 ${
                   message.role === 'user' 
                     ? 'bg-primary text-primary-foreground' 
                     : 'bg-muted text-muted-foreground'
@@ -134,7 +136,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       ? 'bg-primary text-primary-foreground ml-auto'
                       : 'bg-muted/50 text-foreground'
                   }`}>
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    <div className="text-sm">
+                      {message.role === 'assistant' ? (
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-medium mb-1">{children}</h3>,
+                            ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+                            li: ({ children }) => <li className="mb-1">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-xs">{children}</code>,
+                            pre: ({ children }) => <pre className="bg-muted p-2 rounded text-xs overflow-x-auto">{children}</pre>,
+                            blockquote: ({ children }) => <blockquote className="border-l-2 border-muted-foreground pl-2 italic">{children}</blockquote>,
+                          }}
+                        >
+                          {message.content}
+                        </ReactMarkdown>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 px-1">
                     {message.timestamp.toLocaleTimeString('sv-SE', { 
