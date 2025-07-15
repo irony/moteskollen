@@ -6,6 +6,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ExternalLink, Shield, Key } from 'lucide-react';
 import { bergetApi } from '@/services/bergetApi';
 
+// Keycloak konfiguration
+const KEYCLOAK_CONFIG = {
+  baseUrl: 'https://keycloak.berget.ai',
+  realm: 'berget',
+  clientId: 'moteskollen'
+};
+
 interface AuthSetupProps {
   onAuthenticated: () => void;
 }
@@ -21,7 +28,24 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
     setLoading(true);
     setError(null);
     try {
-      const authData = await bergetApi.initiateDeviceAuth();
+      // Keycloak device flow endpoint
+      const deviceEndpoint = `${KEYCLOAK_CONFIG.baseUrl}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/auth/device`;
+      
+      const response = await fetch(deviceEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: KEYCLOAK_CONFIG.clientId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Kunde inte starta enhetsautentisering');
+      }
+
+      const authData = await response.json();
       setDeviceAuthData(authData);
       setStep('device');
       
@@ -40,20 +64,47 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
 
     const poll = async () => {
       try {
-        await bergetApi.getAccessToken(deviceCode);
-        onAuthenticated();
-      } catch (err: any) {
-        attempts++;
+        const tokenEndpoint = `${KEYCLOAK_CONFIG.baseUrl}/realms/${KEYCLOAK_CONFIG.realm}/protocol/openid-connect/token`;
         
-        if (err.message.includes('authorization_pending')) {
+        const response = await fetch(tokenEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+            device_code: deviceCode,
+            client_id: KEYCLOAK_CONFIG.clientId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.access_token) {
+          // Spara access token
+          localStorage.setItem('keycloak_token', data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem('keycloak_refresh_token', data.refresh_token);
+          }
+          onAuthenticated();
+        } else if (data.error === 'authorization_pending') {
+          attempts++;
           if (attempts < maxAttempts) {
-            setTimeout(poll, 10000); // Försök igen om 10 sekunder
+            setTimeout(poll, 5000); // Försök igen om 5 sekunder
           } else {
             setError('Tidsgränsen för autentisering har löpt ut. Försök igen.');
             setStep('choice');
           }
-        } else if (err.message.includes('slow_down')) {
-          setTimeout(poll, 15000); // Vänta lite längre
+        } else if (data.error === 'slow_down') {
+          setTimeout(poll, 10000); // Vänta lite längre
+        } else {
+          setError(`Autentisering misslyckades: ${data.error_description || data.error}`);
+          setStep('choice');
+        }
+      } catch (err: any) {
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 5000);
         } else {
           setError(`Autentisering misslyckades: ${err.message}`);
           setStep('choice');
@@ -103,7 +154,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             <div className="space-y-4">
               <h3 className="font-semibold">Kom igång med Berget AI</h3>
               
-              <Button 
+                <Button 
                 onClick={startDeviceAuth}
                 disabled={loading}
                 className="w-full"
@@ -114,7 +165,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
                 ) : (
                   <ExternalLink className="w-4 h-4 mr-2" />
                 )}
-                Skapa konto / Logga in med Berget AI
+                Logga in med Keycloak
               </Button>
 
               <div className="text-center">
@@ -148,12 +199,12 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
 
               <Button asChild className="w-full">
                 <a 
-                  href={deviceAuthData.verification_uri} 
+                  href={deviceAuthData.verification_uri_complete || deviceAuthData.verification_uri} 
                   target="_blank" 
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  Öppna Berget AI
+                  Öppna Keycloak
                 </a>
               </Button>
 
