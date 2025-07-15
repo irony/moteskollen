@@ -42,7 +42,6 @@ import { HybridTranscription } from './HybridTranscription';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
-  onShowProtocols: () => void;
   onLogout: () => void;
 }
 
@@ -107,7 +106,6 @@ const PROTOCOL_TEMPLATES = [
 ];
 
 export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ 
-  onShowProtocols, 
   onLogout 
 }) => {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
@@ -343,10 +341,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             <p className="text-muted-foreground">Powered by Berget AI</p>
           </div>
           <div className="flex space-x-2">
-            <Button variant="outline" onClick={onShowProtocols}>
-              <FileText className="w-4 h-4 mr-2" />
-              Protokoll
-            </Button>
             <Button variant="ghost" onClick={onLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logga ut
@@ -756,8 +750,72 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
                             <TabsContent value="protocol" className="mt-4">
                               <Card>
-                                <CardHeader>
+                                <CardHeader className="flex flex-row items-center justify-between">
                                   <CardTitle className="text-sm">Mötesprotokoll</CardTitle>
+                                  {meeting.status === 'completed' && meeting.originalTranscription && (
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button variant="outline" size="sm">
+                                          <Settings className="w-4 h-4 mr-2" />
+                                          Skapa protokoll
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="max-w-2xl">
+                                        <DialogHeader>
+                                          <DialogTitle>Välj mall för protokoll</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="grid grid-cols-2 gap-4 p-4">
+                                          {PROTOCOL_TEMPLATES.map((template) => (
+                                            <Card key={template.id} className="cursor-pointer hover:bg-muted/50" onClick={async () => {
+                                              try {
+                                                setProcessingStep('summarizing');
+                                                const summaryResult = await bergetApi.summarizeToProtocol(
+                                                  meeting.originalTranscription!, 
+                                                  template.systemPrompt
+                                                );
+                                                
+                                                // Uppdatera mötet med det nya protokollet
+                                                const updatedMeetings = meetings.map(m => 
+                                                  m.id === meeting.id ? { 
+                                                    ...m, 
+                                                    summary: summaryResult.summary,
+                                                    actionItems: summaryResult.action_items || [],
+                                                    templateType: template.id
+                                                  } : m
+                                                );
+                                                setMeetings(updatedMeetings);
+                                                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+                                                
+                                                setProcessingStep('completed');
+                                                toast({
+                                                  title: "Protokoll skapat! 🎉",
+                                                  description: `${template.name} har skapats för mötet.`,
+                                                });
+                                              } catch (err: any) {
+                                                setError(err.message);
+                                                setProcessingStep('error');
+                                                toast({
+                                                  title: "Fel uppstod",
+                                                  description: err.message,
+                                                  variant: "destructive"
+                                                });
+                                              }
+                                            }}>
+                                              <CardContent className="p-4">
+                                                <div className="flex items-center space-x-3">
+                                                  <template.icon className="w-6 h-6 text-primary" />
+                                                  <div>
+                                                    <h4 className="font-medium">{template.name}</h4>
+                                                    <p className="text-sm text-muted-foreground">{template.description}</p>
+                                                  </div>
+                                                </div>
+                                              </CardContent>
+                                            </Card>
+                                          ))}
+                                        </div>
+                                      </DialogContent>
+                                    </Dialog>
+                                  )}
                                 </CardHeader>
                                 <CardContent>
                                   {meeting.summary ? (
@@ -768,6 +826,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                                     <p className="text-sm text-muted-foreground">
                                       {meeting.status === 'recording' ? 'Inspelning pågår...' : 
                                        meeting.status === 'processing' ? 'Skapar protokoll...' : 
+                                       meeting.originalTranscription ? 'Klicka på "Skapa protokoll" för att välja mall och skapa protokoll' :
                                        'Inget protokoll tillgängligt'}
                                     </p>
                                   )}

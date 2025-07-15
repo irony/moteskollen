@@ -122,7 +122,7 @@ class BergetApiService {
   }
 
   // Summera och städa text till protokoll
-  async summarizeToProtocol(text: string): Promise<SummaryResponse> {
+  async summarizeToProtocol(text: string, customSystemPrompt?: string): Promise<SummaryResponse> {
     if (!this.apiKey) {
       throw new Error('API-nyckel saknas');
     }
@@ -143,7 +143,7 @@ class BergetApiService {
         messages: [
           {
             role: 'system',
-            content: `Du är en professionell sekreterare som skapar strukturerade mötesprotokoll på svenska. 
+            content: customSystemPrompt || `Du är en professionell sekreterare som skapar strukturerade mötesprotokoll på svenska. 
             Omvandla den transkriberade texten till ett välorganiserat protokoll med följande struktur:
             
             # Protokoll

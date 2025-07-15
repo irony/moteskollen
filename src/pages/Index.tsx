@@ -45,7 +45,6 @@ const Index = () => {
     default:
       return (
         <TranscriptionApp 
-          onShowProtocols={showProtocols}
           onLogout={handleLogout}
         />
       );
