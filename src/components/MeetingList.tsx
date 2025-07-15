@@ -222,7 +222,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
                             <div className={`w-3 h-3 rounded-full ${getStatusColor(meeting.status)}`} />
-                            <h3 className="text-lg font-semibold text-foreground">{meeting.title}</h3>
+                            <h3 className="text-lg font-semibold text-foreground line-clamp-2 leading-tight">{meeting.title}</h3>
                             <Badge variant="outline" className="text-xs">
                               {getStatusText(meeting.status)}
                             </Badge>
