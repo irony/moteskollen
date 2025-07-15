@@ -16,9 +16,9 @@ import {
   Shield
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { useHybridTranscription } from '@/hooks/useHybridTranscription';
 import { RecordingButton } from './RecordingButton';
-import { LiveTranscription } from './LiveTranscription';
+import { HybridTranscription } from './HybridTranscription';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -33,12 +33,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   onLogout 
 }) => {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
-  const [transcription, setTranscription] = useState('');
-  const [liveTranscriptionSegments, setLiveTranscriptionSegments] = useState<Array<{
-    text: string;
-    timestamp: Date;
-    isProcessing?: boolean;
-  }>>([]);
+  const [fullTranscription, setFullTranscription] = useState('');
   const [summary, setSummary] = useState('');
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [actionItems, setActionItems] = useState<string[]>([]);
@@ -47,56 +42,24 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
   const { toast } = useToast();
 
-  // Hantera ljudchunks för live transkribering
-  const handleAudioChunk = useCallback(async (chunk: Blob) => {
-    try {
-      // Lägg till processing-segment
-      const processingSegment = {
-        text: '',
-        timestamp: new Date(),
-        isProcessing: true
-      };
-      
-      setLiveTranscriptionSegments(prev => [...prev, processingSegment]);
-
-      // Transkribera chunk
-      const result = await bergetApi.transcribeAudio(chunk);
-      
-      // Uppdatera segment med resultat
-      setLiveTranscriptionSegments(prev => 
-        prev.map((seg, idx) => 
-          idx === prev.length - 1 
-            ? { ...seg, text: result.text, isProcessing: false }
-            : seg
-        )
-      );
-
-      // Lägg till i fullständig transkribering
-      setTranscription(prev => prev + ' ' + result.text);
-
-    } catch (err: any) {
-      console.error('Live transcription error:', err);
-      // Ta bort det misslyckade segmentet
-      setLiveTranscriptionSegments(prev => prev.slice(0, -1));
-    }
+  // Hybrid transkribering - kombinerar Speech API + Berget AI
+  const handleBergetTranscription = useCallback((text: string) => {
+    setFullTranscription(prev => prev + ' ' + text);
   }, []);
 
   const { 
     isRecording, 
-    isPaused,
     audioLevel, 
+    segments,
     startRecording, 
-    stopRecording, 
-    pauseRecording,
-    resumeRecording,
-    error: recordingError 
-  } = useAudioRecorder(handleAudioChunk, 8000); // 8 sekunder chunks
+    stopRecording,
+    error: hybridError 
+  } = useHybridTranscription(handleBergetTranscription);
 
   const handleStartRecording = useCallback(async () => {
     setError(null);
     setProcessingStep('idle');
-    setTranscription('');
-    setLiveTranscriptionSegments([]);
+    setFullTranscription('');
     setSummary('');
     setKeyPoints([]);
     setActionItems([]);
@@ -106,11 +69,12 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const handleStopRecording = useCallback(async () => {
     await stopRecording();
     
-    // Om vi har transkribering, skapa protokoll
-    if (transcription.trim()) {
-      await processTranscription(transcription);
+    // Skapa protokoll från all transkriberad text
+    const allText = segments.map(s => s.text).join(' ') + ' ' + fullTranscription;
+    if (allText.trim().length > 20) {
+      await processTranscription(allText.trim());
     }
-  }, [stopRecording, transcription]);
+  }, [stopRecording, segments, fullTranscription]);
 
   const processTranscription = async (text: string) => {
     try {
@@ -140,7 +104,8 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   };
 
   const saveProtocol = () => {
-    if (!transcription || !summary) return;
+    const allText = segments.map(s => s.text).join(' ') + ' ' + fullTranscription;
+    if (!allText.trim() || !summary) return;
 
     const protocol = {
       id: Date.now().toString(),
@@ -149,7 +114,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       summary,
       keyPoints,
       actionItems,
-      originalTranscription: transcription
+      originalTranscription: allText.trim()
     };
 
     const existing = JSON.parse(localStorage.getItem('meeting_protocols') || '[]');
@@ -163,8 +128,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
     // Återställ formuläret
     setProcessingStep('idle');
-    setTranscription('');
-    setLiveTranscriptionSegments([]);
+    setFullTranscription('');
     setSummary('');
     setKeyPoints([]);
     setActionItems([]);
@@ -229,20 +193,20 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             <div className="flex justify-center">
               <RecordingButton
                 isRecording={isRecording}
-                isPaused={isPaused}
+                isPaused={false}
                 audioLevel={audioLevel}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
-                onPauseRecording={pauseRecording}
-                onResumeRecording={resumeRecording}
+                onPauseRecording={() => {}} // Inte använt i hybrid-läge
+                onResumeRecording={() => {}} // Inte använt i hybrid-läge
                 disabled={processingStep === 'summarizing'}
               />
             </div>
 
-            {recordingError && (
+            {hybridError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{recordingError}</AlertDescription>
+                <AlertDescription>{hybridError}</AlertDescription>
               </Alert>
             )}
 
@@ -268,11 +232,11 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </CardContent>
         </Card>
 
-        {/* Live Transkribering */}
-        <LiveTranscription 
-          transcriptionSegments={liveTranscriptionSegments}
+        {/* Hybrid Live Transkribering */}
+        <HybridTranscription 
+          segments={segments}
           audioLevel={audioLevel}
-          isActive={isRecording && !isPaused}
+          isActive={isRecording}
         />
 
         {/* Resultat */}
