@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ReactMarkdown from 'react-markdown';
 import { 
@@ -28,7 +29,9 @@ import {
   Calendar,
   Clock,
   Edit3,
-  Trash2
+  Trash2,
+  MessageSquare,
+  ChevronDown
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -592,13 +595,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <Accordion type="single" collapsible className="w-full">
                     {meetings
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map((meeting) => (
-                      <div key={meeting.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                      <AccordionItem key={meeting.id} value={meeting.id} className="border rounded-lg mb-4">
+                        <AccordionTrigger className="hover:no-underline px-4 py-3">
+                          <div className="flex items-center justify-between w-full mr-4">
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center space-x-2">
                                 {meeting.status === 'recording' && (
@@ -618,47 +621,108 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                                    meeting.status === 'processing' ? 'Bearbetar' : 'Klart'}
                                 </Badge>
                               </div>
-                              <div>
-                                <input
-                                  type="text"
-                                  value={meeting.title}
-                                  onChange={(e) => editMeetingTitle(meeting.id, e.target.value)}
-                                  className="font-medium bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded px-1"
-                                />
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
-                              <div className="flex items-center space-x-1">
-                                <Clock className="w-4 h-4" />
-                                <span>{meeting.date.toLocaleDateString('sv-SE')}</span>
-                                <span>{meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
-                              </div>
-                              {meeting.summary && (
-                                <div className="truncate max-w-md">
-                                  {meeting.summary.substring(0, 80)}...
+                              <div className="text-left">
+                                <h3 className="font-medium">{meeting.title}</h3>
+                                <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                                  <div className="flex items-center space-x-1">
+                                    <Clock className="w-4 h-4" />
+                                    <span>{meeting.date.toLocaleDateString('sv-SE')}</span>
+                                    <span>{meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
                                 </div>
-                              )}
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => deleteMeeting(meeting.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            {meeting.status === 'completed' && meeting.summary && (
-                              <Button variant="outline" size="sm">
-                                <FileText className="w-4 h-4 mr-1" />
-                                Visa
-                              </Button>
-                            )}
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => deleteMeeting(meeting.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 pb-4">
+                          <Tabs defaultValue="transcription" className="w-full">
+                            <TabsList className="grid w-full grid-cols-3">
+                              <TabsTrigger value="transcription">
+                                <Mic className="w-4 h-4 mr-2" />
+                                Transkribering
+                              </TabsTrigger>
+                              <TabsTrigger value="protocol">
+                                <FileText className="w-4 h-4 mr-2" />
+                                Protokoll
+                              </TabsTrigger>
+                              <TabsTrigger value="chat">
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                Chat
+                              </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="transcription" className="mt-4">
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-sm">Originaltranskribering</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  {meeting.originalTranscription ? (
+                                    <div className="text-sm text-muted-foreground whitespace-pre-wrap max-h-64 overflow-y-auto">
+                                      {meeting.originalTranscription}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      {meeting.status === 'recording' ? 'Inspelning pågår...' : 
+                                       meeting.status === 'processing' ? 'Bearbetar transkribering...' : 
+                                       'Ingen transkribering tillgänglig'}
+                                    </p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </TabsContent>
+
+                            <TabsContent value="protocol" className="mt-4">
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-sm">Mötesprotokoll</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  {meeting.summary ? (
+                                    <div className="prose prose-sm max-w-none dark:prose-invert">
+                                      <ReactMarkdown>{meeting.summary}</ReactMarkdown>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground">
+                                      {meeting.status === 'recording' ? 'Inspelning pågår...' : 
+                                       meeting.status === 'processing' ? 'Skapar protokoll...' : 
+                                       'Inget protokoll tillgängligt'}
+                                    </p>
+                                  )}
+                                </CardContent>
+                              </Card>
+                            </TabsContent>
+
+                            <TabsContent value="chat" className="mt-4">
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-sm">Chat med mötet</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  <div className="text-center py-8 text-muted-foreground">
+                                    <MessageSquare className="w-8 h-8 mx-auto mb-2" />
+                                    <p>Chat-funktion kommer snart</p>
+                                    <p className="text-xs mt-1">
+                                      Du kommer kunna ställa frågor om mötet här
+                                    </p>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </TabsContent>
+                          </Tabs>
+                        </AccordionContent>
+                      </AccordionItem>
                     ))}
-                  </div>
+                  </Accordion>
                 )}
               </CardContent>
             </Card>
