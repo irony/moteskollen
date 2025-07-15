@@ -127,7 +127,7 @@ export const RecordingButton: React.FC<RecordingButtonProps> = ({
               Starta live transkribering
             </p>
             <p className="text-sm text-muted-foreground">
-              Får automatisk syntolkning var 8:e sekund
+              Se vad som sägs
             </p>
           </div>
         )}
