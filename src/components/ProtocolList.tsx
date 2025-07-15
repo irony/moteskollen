@@ -7,13 +7,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search, Calendar, FileText, Trash2, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Protocol {
   id: string;
   date: Date;
   title: string;
   summary: string;
-  keyPoints: string[];
   actionItems: string[];
   originalTranscription: string;
 }
@@ -51,22 +52,20 @@ export const ProtocolList: React.FC<ProtocolListProps> = ({ onBack }) => {
   };
 
   const exportProtocol = (protocol: Protocol) => {
-    const content = `MÖTESPROTOKOLL
-Datum: ${format(protocol.date, 'PPP', { locale: sv })}
-Titel: ${protocol.title}
+    const content = `# MÖTESPROTOKOLL
+**Datum:** ${format(protocol.date, 'PPP', { locale: sv })}  
+**Titel:** ${protocol.title}
 
-SAMMANFATTNING
+## SAMMANFATTNING
 ${protocol.summary}
 
-NYCKELPOÄNG
-${protocol.keyPoints.map(point => `• ${point}`).join('\n')}
+${protocol.actionItems.length > 0 ? `## HANDLINGSPLAN
+${protocol.actionItems.map(item => `- ${item}`).join('\n')}
 
-${protocol.actionItems.length > 0 ? `HANDLINGSPLAN
-${protocol.actionItems.map(item => `• ${item}`).join('\n')}` : ''}
-
-FULLSTÄNDIG TRANSKRIBERING
+` : ''}## FULLSTÄNDIG TRANSKRIBERING
 ${protocol.originalTranscription}
-    `;
+---
+*Genererat av Protokoll Klippare - Powered by Berget AI*`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -123,24 +122,12 @@ ${protocol.originalTranscription}
             <CardContent className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-3">Sammanfattning</h3>
-                <div className="bg-muted p-4 rounded-lg">
-                  <p className="whitespace-pre-wrap">{selectedProtocol.summary}</p>
+                <div className="bg-muted p-4 rounded-lg prose dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {selectedProtocol.summary}
+                  </ReactMarkdown>
                 </div>
               </div>
-
-              {selectedProtocol.keyPoints.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Nyckelpoäng</h3>
-                  <ul className="space-y-2">
-                    {selectedProtocol.keyPoints.map((point, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <span className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                        <span>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
 
               {selectedProtocol.actionItems.length > 0 && (
                 <div>
@@ -158,11 +145,11 @@ ${protocol.originalTranscription}
 
               <div>
                 <h3 className="text-lg font-semibold mb-3">Fullständig transkribering</h3>
-                <ScrollArea className="h-96 w-full border rounded-lg p-4">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                <div className="bg-muted p-4 rounded-lg prose dark:prose-invert max-w-none">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {selectedProtocol.originalTranscription}
-                  </p>
-                </ScrollArea>
+                  </ReactMarkdown>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -226,7 +213,6 @@ ${protocol.originalTranscription}
                   </p>
 
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                    <span>{protocol.keyPoints.length} nyckelpoäng</span>
                     {protocol.actionItems.length > 0 && (
                       <span>{protocol.actionItems.length} handlingspoäng</span>
                     )}

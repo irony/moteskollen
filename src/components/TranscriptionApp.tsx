@@ -35,7 +35,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [fullTranscription, setFullTranscription] = useState('');
   const [summary, setSummary] = useState('');
-  const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [actionItems, setActionItems] = useState<string[]>([]);
   const [meetingTitle, setMeetingTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +60,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     setProcessingStep('idle');
     setFullTranscription('');
     setSummary('');
-    setKeyPoints([]);
     setActionItems([]);
     await startRecording();
   }, [startRecording]);
@@ -83,7 +81,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       // Skapa protokoll från den fullständiga transkriberingen
       const summaryResult = await bergetApi.summarizeToProtocol(text);
       setSummary(summaryResult.summary);
-      setKeyPoints(summaryResult.key_points);
       setActionItems(summaryResult.action_items || []);
 
       setProcessingStep('completed');
@@ -112,7 +109,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       date: new Date(),
       title: meetingTitle || `Möte ${new Date().toLocaleDateString('sv-SE')}`,
       summary,
-      keyPoints,
       actionItems,
       originalTranscription: allText.trim()
     };
@@ -130,7 +126,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     setProcessingStep('idle');
     setFullTranscription('');
     setSummary('');
-    setKeyPoints([]);
     setActionItems([]);
     setMeetingTitle('');
   };
@@ -271,19 +266,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 />
               </div>
 
-              {keyPoints.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Nyckelpoäng</h3>
-                  <ul className="space-y-2">
-                    {keyPoints.map((point, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <span className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                        <span className="text-sm">{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
 
               {actionItems.length > 0 && (
                 <div>

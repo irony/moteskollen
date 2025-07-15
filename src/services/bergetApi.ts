@@ -16,7 +16,6 @@ interface TranscriptionResponse {
 
 interface SummaryResponse {
   summary: string;
-  key_points: string[];
   action_items?: string[];
 }
 
@@ -158,11 +157,9 @@ class BergetApiService {
 
     // Extrahera handlingsområden ur svaret
     const actionItems = this.extractActionItems(summary);
-    const keyPoints = this.extractKeyPoints(summary);
 
     return {
       summary,
-      key_points: keyPoints,
       action_items: actionItems
     };
   }
@@ -171,11 +168,6 @@ class BergetApiService {
     const actionRegex = /(?:handlingspoint|åtgärd|uppgift|todo).*?(?=\n|$)/gi;
     const matches = text.match(actionRegex) || [];
     return matches.map(match => match.trim());
-  }
-
-  private extractKeyPoints(text: string): string[] {
-    const lines = text.split('\n').filter(line => line.trim().length > 0);
-    return lines.slice(0, 5); // Ta de första 5 meningsfulla raderna som nyckelpoäng
   }
 }
 
