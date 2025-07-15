@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import ReactMarkdown from 'react-markdown';
 import { 
   Loader2, 
@@ -35,7 +36,8 @@ import {
   ChevronDown,
   Brain,
   Upload,
-  Paperclip
+  Paperclip,
+  Menu
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -45,6 +47,7 @@ import { HybridTranscription } from './HybridTranscription';
 import { ChatInterface } from './ChatInterface';
 import { FooterWithRecording } from './FooterWithRecording';
 import { HistoryDrawer } from './HistoryDrawer';
+import { AppSidebar } from './AppSidebar';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -453,83 +456,124 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
-      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <h1 className="text-4xl font-semibold tracking-tight text-foreground">Möteskollen</h1>
-            <p className="text-muted-foreground font-medium">Powered by Berget AI</p>
-          </div>
-          <Button 
-            variant="ghost" 
-            onClick={onLogout}
-            className="rounded-2xl px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logga ut
-          </Button>
-        </div>
-
-        {/* Säkerhetsinformation */}
-        <div className="apple-card p-4 bg-gradient-to-r from-muted/30 to-muted/20 border border-border/30">
-          <div className="flex items-start space-x-3">
-            <div className="p-2 rounded-full bg-primary/10">
-              <Shield className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium text-foreground">Säker och GDPR-kompatibel</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                All bearbetning sker inom Sverige. Ingen data lämnar EU.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Live transkribering */}
-        <HybridTranscription 
-          segments={segments}
-          audioLevel={audioLevel}
-          isActive={isRecording}
-          onStartRecording={handleStartRecording}
-          onStopRecording={handleStopRecording}
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        {/* Sidebar */}
+        <AppSidebar 
+          onShowHistory={handleShowHistory}
+          onLogout={onLogout}
+          meetingsCount={meetings.length}
         />
 
-        {/* Error display */}
-        {(error || hybridError) && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              {error || hybridError}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Processing display */}
-        {processingStep !== 'idle' && processingStep !== 'completed' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{getStatusMessage()}</span>
-              <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
+        {/* Huvudinnehåll */}
+        <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
+          {/* Header med hamburgermeny */}
+          <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/30">
+            <div className="max-w-4xl mx-auto px-4 md:px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {/* Hamburgermeny (synlig på alla enheter) */}
+                  <SidebarTrigger className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                    <Menu className="w-5 h-5" />
+                  </SidebarTrigger>
+                  
+                  <div className="space-y-1">
+                    <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-foreground">Möteskollen</h1>
+                    <p className="text-xs md:text-sm text-muted-foreground font-medium">Powered by Berget AI</p>
+                  </div>
+                </div>
+                
+                {/* Visuell indikator för antal möten (endast desktop) */}
+                <div className="hidden md:flex items-center space-x-2">
+                  {meetings.length > 0 && (
+                    <Badge variant="outline" className="text-xs">
+                      {meetings.length} möten
+                    </Badge>
+                  )}
+                </div>
+              </div>
             </div>
-            <Progress value={getProgressValue()} className="h-2" />
-          </div>
-        )}
-      </div>
+          </header>
 
-      {/* Apple-style Footer med inspelningsknapp */}
-      <FooterWithRecording
-        isRecording={isRecording}
-        isPaused={false}
-        audioLevel={audioLevel}
-        onStartRecording={handleStartRecording}
-        onStopRecording={handleStopRecording}
-        onPauseRecording={() => {}}
-        onResumeRecording={() => {}}
-        onShowHistory={handleShowHistory}
-        onFileUpload={handleFileUpload}
-        disabled={isProcessingFile}
-      />
+          <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
+            {/* Säkerhetsinformation */}
+            <div className="apple-card p-4 bg-gradient-to-r from-muted/30 to-muted/20 border border-border/30">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 rounded-full bg-primary/10">
+                  <Shield className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Säker och GDPR-kompatibel</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    All bearbetning sker inom Sverige. Ingen data lämnar EU.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Live transkribering */}
+            <HybridTranscription 
+              segments={segments}
+              audioLevel={audioLevel}
+              isActive={isRecording}
+              onStartRecording={handleStartRecording}
+              onStopRecording={handleStopRecording}
+            />
+
+            {/* Error display */}
+            {(error || hybridError) && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {error || hybridError}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Processing display */}
+            {processingStep !== 'idle' && processingStep !== 'completed' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{getStatusMessage()}</span>
+                  <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
+                </div>
+                <Progress value={getProgressValue()} className="h-2" />
+              </div>
+            )}
+
+            {/* Chat-sektion för AI-assistent */}
+            <div data-section="chat" className="space-y-4">
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <MessageSquare className="w-5 h-5" />
+                    <span>AI-assistent</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ChatInterface 
+                    meetingContext={selectedMeeting ? getMeetingContext(selectedMeeting) : getGlobalContext()}
+                  />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Apple-style Footer med inspelningsknapp */}
+          <FooterWithRecording
+            isRecording={isRecording}
+            isPaused={false}
+            audioLevel={audioLevel}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+            onPauseRecording={() => {}}
+            onResumeRecording={() => {}}
+            onShowHistory={handleShowHistory}
+            onFileUpload={handleFileUpload}
+            disabled={isProcessingFile}
+          />
+        </main>
+      </div>
 
       {/* Historik Drawer */}
       <HistoryDrawer
@@ -541,6 +585,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
         onEditMeetingTitle={editMeetingTitle}
         onStartChat={handleStartChat}
       />
-    </div>
+    </SidebarProvider>
   );
 };
