@@ -81,12 +81,24 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
         const data = await response.json();
 
         if (response.ok && data.access_token) {
-          // Spara access token
-          localStorage.setItem('keycloak_token', data.access_token);
-          if (data.refresh_token) {
-            localStorage.setItem('keycloak_refresh_token', data.refresh_token);
+          // Spara Keycloak token temporärt
+          const keycloakToken = data.access_token;
+          
+          try {
+            // Använd Keycloak token för att skapa Berget API-nyckel
+            await bergetApi.createApiKeyWithKeycloak(keycloakToken);
+            
+            // Spara Keycloak token för eventuell refresh
+            localStorage.setItem('keycloak_token', keycloakToken);
+            if (data.refresh_token) {
+              localStorage.setItem('keycloak_refresh_token', data.refresh_token);
+            }
+            
+            onAuthenticated();
+          } catch (apiError: any) {
+            setError(`Kunde inte skapa API-nyckel: ${apiError.message}`);
+            setStep('choice');
           }
-          onAuthenticated();
         } else if (data.error === 'authorization_pending') {
           attempts++;
           if (attempts < maxAttempts) {

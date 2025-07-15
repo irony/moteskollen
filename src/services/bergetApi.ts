@@ -81,6 +81,36 @@ class BergetApiService {
     return tokenData;
   }
 
+  // Skapa API-nyckel med Keycloak token
+  async createApiKeyWithKeycloak(keycloakToken: string): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/v1/auth/api-keys`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${keycloakToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: 'Protokoll Klippare',
+        description: 'Skapad från Protokoll Klippare applikation'
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Kunde inte skapa API-nyckel: ${response.status} - ${errorText}`);
+    }
+
+    const result = await response.json();
+    const apiKey = result.api_key || result.key;
+    
+    if (!apiKey) {
+      throw new Error('API-nyckel saknas i svaret');
+    }
+
+    this.setApiKey(apiKey);
+    return apiKey;
+  }
+
   setApiKey(key: string) {
     this.apiKey = key;
     localStorage.setItem('berget_api_key', key);
