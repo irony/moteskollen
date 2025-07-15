@@ -73,6 +73,7 @@ export const useHybridTranscription = (
     recognition.maxAlternatives = 1;
 
     let pendingSegmentId: string | null = null;
+    let currentInterimText = '';
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const lastResult = event.results[event.results.length - 1];
@@ -113,21 +114,25 @@ export const useHybridTranscription = (
           sendAudioSegmentToBerget(segmentId, segmentStartTimeRef.current, audioTime);
         }
 
-        // Uppdatera start för nästa segment
+        // Återställ för nästa segment
         segmentStartTimeRef.current = audioTime;
         pendingSegmentId = null;
+        currentInterimText = '';
 
       } else {
-        // Interim resultat - uppdatera temporärt segment
+        // Interim resultat - bygg ihop texten progressivt
         if (!pendingSegmentId) {
           pendingSegmentId = Date.now().toString();
         }
+
+        // Bygg ihop interim text progressivt
+        currentInterimText = transcript;
 
         setSegments(prev => {
           const existingIndex = prev.findIndex(s => s.id === pendingSegmentId);
           const tempSegment: TranscriptionSegment = {
             id: pendingSegmentId!,
-            text: transcript + ' ...',
+            text: currentInterimText + ' ...',
             timestamp: now,
             isLocal: true,
             audioStart: segmentStartTimeRef.current,
