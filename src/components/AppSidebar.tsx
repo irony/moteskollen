@@ -14,15 +14,11 @@ import {
 } from '@/components/ui/sidebar';
 
 interface AppSidebarProps {
-  onShowHistory: () => void;
   onLogout: () => void;
-  meetingsCount: number;
 }
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({
-  onShowHistory,
-  onLogout,
-  meetingsCount
+  onLogout
 }) => {
   const { setOpenMobile } = useSidebar();
 
@@ -38,13 +34,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
       icon: Home,
       action: () => {}, // Redan på hem-sidan
       disabled: true
-    },
-    {
-      id: 'history',
-      title: 'Möteshistorik',
-      icon: History,
-      action: onShowHistory,
-      badge: meetingsCount > 0 ? meetingsCount.toString() : undefined
     },
     {
       id: 'search',
@@ -94,13 +83,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
                         : 'hover:bg-muted/80'
                     }`}
                   >
-                    <item.icon className="w-5 h-5 mr-3" />
+                    <item.icon className="w-5 h-5 mr-3 text-muted-foreground" />
                     <span className="flex-1">{item.title}</span>
-                    {item.badge && (
-                      <span className="ml-auto bg-primary text-primary-foreground text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
-                        {item.badge}
-                      </span>
-                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

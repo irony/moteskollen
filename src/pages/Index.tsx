@@ -3,10 +3,12 @@ import { AuthSetup } from '@/components/AuthSetup';
 import { TranscriptionApp } from '@/components/TranscriptionApp';
 import { MeetingList } from '@/components/MeetingList';
 import { MeetingDetail } from '@/components/MeetingDetail';
+import { FloatingViewSelector } from '@/components/FloatingViewSelector';
 import { bergetApi } from '@/services/bergetApi';
 import { securityService } from '@/lib/security';
 
-type AppState = 'auth' | 'meetings' | 'recording' | 'meeting-detail';
+type AppState = 'auth' | 'live' | 'history' | 'meeting-detail';
+type ViewMode = 'live' | 'history';
 
 interface Meeting {
   id: string;
@@ -22,6 +24,7 @@ interface Meeting {
 
 const Index = () => {
   const [appState, setAppState] = useState<AppState>('auth');
+  const [currentView, setCurrentView] = useState<ViewMode>('history');
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
 
   useEffect(() => {
@@ -29,12 +32,12 @@ const Index = () => {
     const bergetToken = securityService.getSecureToken('berget_token');
     const apiKey = bergetApi.getApiKey();
     if (bergetToken || apiKey) {
-      setAppState('meetings'); // Startar på möteslistan istället för inspelning
+      setAppState('history'); // Startar på historik
     }
   }, []);
 
   const handleAuthenticated = () => {
-    setAppState('meetings');
+    setAppState('history');
   };
 
   const handleLogout = () => {
@@ -42,6 +45,13 @@ const Index = () => {
     securityService.clearAllAuthData();
     bergetApi.clearApiKey();
     setAppState('auth');
+    setCurrentView('history');
+    setSelectedMeeting(null);
+  };
+
+  const handleViewChange = (view: ViewMode) => {
+    setCurrentView(view);
+    setAppState(view);
     setSelectedMeeting(null);
   };
 
@@ -50,13 +60,9 @@ const Index = () => {
     setAppState('meeting-detail');
   };
 
-  const handleStartNewRecording = () => {
-    setAppState('recording');
-    setSelectedMeeting(null);
-  };
-
-  const handleBackToMeetings = () => {
-    setAppState('meetings');
+  const handleBackToHistory = () => {
+    setAppState('history');
+    setCurrentView('history');
     setSelectedMeeting(null);
   };
 
@@ -70,37 +76,71 @@ const Index = () => {
     setSelectedMeeting(updatedMeeting);
   };
 
+  // Visa floating selector endast när användaren är autentiserad
+  const showFloatingSelector = appState !== 'auth';
+
   switch (appState) {
     case 'auth':
       return <AuthSetup onAuthenticated={handleAuthenticated} />;
     
-    case 'meetings':
+    case 'history':
       return (
-        <MeetingList 
-          onLogout={handleLogout}
-          onSelectMeeting={handleSelectMeeting}
-          onStartNewRecording={handleStartNewRecording}
-        />
+        <>
+          {showFloatingSelector && (
+            <FloatingViewSelector 
+              currentView={currentView}
+              onViewChange={handleViewChange}
+            />
+          )}
+          <MeetingList 
+            onLogout={handleLogout}
+            onSelectMeeting={handleSelectMeeting}
+            className="pt-20" // Add top padding for floating selector
+          />
+        </>
       );
     
-    case 'recording':
-      return <TranscriptionApp onLogout={handleLogout} />;
+    case 'live':
+      return (
+        <>
+          {showFloatingSelector && (
+            <FloatingViewSelector 
+              currentView={currentView}
+              onViewChange={handleViewChange}
+            />
+          )}
+          <TranscriptionApp 
+            onLogout={handleLogout}
+            className="pt-20" // Add top padding for floating selector
+          />
+        </>
+      );
     
     case 'meeting-detail':
       return selectedMeeting ? (
         <MeetingDetail 
           meeting={selectedMeeting}
-          onBack={handleBackToMeetings}
+          onBack={handleBackToHistory}
           onUpdateMeeting={handleUpdateMeeting}
         />
       ) : null;
     
     default:
-      return <MeetingList 
-        onLogout={handleLogout}
-        onSelectMeeting={handleSelectMeeting}
-        onStartNewRecording={handleStartNewRecording}
-      />;
+      return (
+        <>
+          {showFloatingSelector && (
+            <FloatingViewSelector 
+              currentView={currentView}
+              onViewChange={handleViewChange}
+            />
+          )}
+          <MeetingList 
+            onLogout={handleLogout}
+            onSelectMeeting={handleSelectMeeting}
+            className="pt-20"
+          />
+        </>
+      );
   }
 };
 

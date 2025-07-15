@@ -23,6 +23,7 @@ import {
 import { AppSidebar } from './AppSidebar';
 import { GlobalSearch } from './GlobalSearch';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface Meeting {
   id: string;
@@ -39,13 +40,13 @@ interface Meeting {
 interface MeetingListProps {
   onLogout: () => void;
   onSelectMeeting: (meeting: Meeting) => void;
-  onStartNewRecording: () => void;
+  className?: string;
 }
 
-export const MeetingList: React.FC<MeetingListProps> = ({
-  onLogout,
+export const MeetingList: React.FC<MeetingListProps> = ({ 
+  onLogout, 
   onSelectMeeting,
-  onStartNewRecording
+  className 
 }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -84,13 +85,13 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   const getStatusColor = (status: Meeting['status']) => {
     switch (status) {
       case 'recording':
-        return 'bg-red-500 animate-pulse';
+        return 'bg-recording animate-pulse'; // Red for recording
       case 'processing':
-        return 'bg-yellow-500';
+        return 'bg-signal-medium'; // Yellow for processing
       case 'completed':
-        return 'bg-green-500';
+        return 'bg-signal-good'; // Green for completed
       default:
-        return 'bg-gray-500';
+        return 'bg-muted-foreground';
     }
   };
 
@@ -124,14 +125,11 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   };
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+    <div className={cn("min-h-screen bg-background", className)}>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
         {/* Sidebar */}
-        <AppSidebar 
-          onShowHistory={() => setIsHistoryOpen(true)}
-          onLogout={onLogout}
-          meetingsCount={meetings.length}
-        />
+          <AppSidebar onLogout={onLogout} />
 
         {/* Huvudinnehåll */}
         <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20">
@@ -155,16 +153,13 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                 <div className="flex items-center space-x-4">
                   <GlobalSearch
                     onShowHistory={() => setIsHistoryOpen(true)}
-                    onStartRecording={onStartNewRecording}
+                    onStartRecording={() => {}} // Handled by floating selector
                     onFileUpload={() => {}} // TODO: Implement file upload
                     meetingContext=""
                     meetingsCount={meetings.length}
                   />
                   
-                  <Button onClick={onStartNewRecording} className="bg-red-500 hover:bg-red-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Nytt möte</span>
-                  </Button>
+                  {/* Floating selector will handle new recording */}
                 </div>
               </div>
             </div>
@@ -200,14 +195,10 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                     </div>
                     <div>
                       <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
-                      <p className="text-muted-foreground mt-2">
-                        Börja med att spela in ditt första möte
-                      </p>
-                    </div>
-                    <Button onClick={onStartNewRecording} className="bg-red-500 hover:bg-red-600">
-                      <Mic className="w-4 h-4 mr-2" />
-                      Starta inspelning
-                    </Button>
+                    <p className="text-muted-foreground mt-2">
+                      Använd floating menu för att starta inspelning
+                    </p>
+                  </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -223,7 +214,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                 {filteredMeetings.map((meeting) => (
                   <Card 
                     key={meeting.id} 
-                    className="hover:shadow-lg transition-all duration-200 cursor-pointer hover:bg-muted/20"
+                    className="neu-card hover:shadow-neu-hover transition-all duration-300 cursor-pointer"
                     onClick={() => onSelectMeeting(meeting)}
                   >
                     <CardContent className="p-6">
@@ -301,6 +292,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
           </div>
         </main>
       </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </div>
   );
 };

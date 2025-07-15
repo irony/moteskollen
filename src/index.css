@@ -4,34 +4,39 @@
 
 @layer base {
   :root {
-    /* Neumorphism light theme */
-    --background: 232 17% 96%;
-    --foreground: 225 25% 15%;
+    /* Monochrome neumorphism light theme */
+    --background: 0 0% 95%;
+    --foreground: 0 0% 15%;
     
-    --card: 232 17% 96%;
-    --card-foreground: 225 25% 15%;
+    --card: 0 0% 95%;
+    --card-foreground: 0 0% 15%;
 
-    --popover: 232 17% 96%;
-    --popover-foreground: 225 25% 15%;
+    --popover: 0 0% 95%;
+    --popover-foreground: 0 0% 15%;
     
-    /* Primary blue with neumorphic feel */
+    /* Minimal blue accent for recording/primary actions only */
     --primary: 214 100% 60%;
     --primary-light: 214 100% 70%;
     --primary-dark: 214 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Neumorphic secondary colors */
-    --secondary: 232 15% 94%;
-    --secondary-foreground: 225 25% 25%;
+    /* Monochrome secondary colors */
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 25%;
     
-    --muted: 232 15% 92%;
-    --muted-foreground: 225 15% 45%;
+    --muted: 0 0% 88%;
+    --muted-foreground: 0 0% 45%;
 
-    --accent: 214 100% 60%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent should be minimal - only for recording state */
+    --accent: 0 0% 88%;
+    --accent-foreground: 0 0% 15%;
 
-    /* Status colors */
-    --recording: 0 84% 60%;
+    /* Status colors - only when needed for signal/recording quality */
+    --recording: 0 84% 60%;      /* Red for recording */
+    --signal-good: 142 71% 45%;   /* Green for good signal */
+    --signal-medium: 38 92% 50%;  /* Yellow for medium signal */
+    --signal-poor: 0 84% 60%;     /* Red for poor signal */
+    
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --success: 142 71% 45%;
@@ -39,20 +44,20 @@
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 9%;
 
-    /* Neumorphic borders and inputs */
-    --border: 232 15% 88%;
-    --input: 232 15% 94%;
-    --ring: 214 100% 60%;
+    /* Monochrome borders and inputs */
+    --border: 0 0% 85%;
+    --input: 0 0% 90%;
+    --ring: 0 0% 45%;
 
     /* Neumorphic radius */
     --radius: 1.5rem;
     
-    /* Neumorphic shadows - light theme */
-    --shadow-neu-inset: inset 4px 4px 8px rgba(174, 174, 192, 0.4), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
-    --shadow-neu-outset: 4px 4px 8px rgba(174, 174, 192, 0.4), -4px -4px 8px rgba(255, 255, 255, 0.9);
-    --shadow-neu-pressed: inset 6px 6px 12px rgba(174, 174, 192, 0.5), inset -6px -6px 12px rgba(255, 255, 255, 1);
-    --shadow-neu-hover: 6px 6px 12px rgba(174, 174, 192, 0.3), -6px -6px 12px rgba(255, 255, 255, 0.8);
-    --shadow-neu-float: 8px 8px 16px rgba(174, 174, 192, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9);
+    /* Monochrome neumorphic shadows - light theme */
+    --shadow-neu-inset: inset 4px 4px 8px rgba(0, 0, 0, 0.1), inset -4px -4px 8px rgba(255, 255, 255, 0.9);
+    --shadow-neu-outset: 4px 4px 8px rgba(0, 0, 0, 0.1), -4px -4px 8px rgba(255, 255, 255, 0.9);
+    --shadow-neu-pressed: inset 6px 6px 12px rgba(0, 0, 0, 0.15), inset -6px -6px 12px rgba(255, 255, 255, 1);
+    --shadow-neu-hover: 6px 6px 12px rgba(0, 0, 0, 0.08), -6px -6px 12px rgba(255, 255, 255, 0.8);
+    --shadow-neu-float: 8px 8px 16px rgba(0, 0, 0, 0.12), -8px -8px 16px rgba(255, 255, 255, 0.9);
     --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.3);
     
     /* Smooth transitions */
@@ -60,41 +65,41 @@
   }
 
   .dark {
-    /* Neumorphism dark theme */
-    --background: 225 25% 12%;
-    --foreground: 232 17% 90%;
+    /* Monochrome neumorphism dark theme */
+    --background: 0 0% 12%;
+    --foreground: 0 0% 85%;
 
-    --card: 225 25% 12%;
-    --card-foreground: 232 17% 90%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 85%;
 
-    --popover: 225 25% 14%;
-    --popover-foreground: 232 17% 90%;
+    --popover: 0 0% 14%;
+    --popover-foreground: 0 0% 85%;
 
     --primary: 214 100% 60%;
     --primary-foreground: 0 0% 9%;
 
-    --secondary: 225 25% 16%;
-    --secondary-foreground: 232 17% 85%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 75%;
 
-    --muted: 225 25% 18%;
-    --muted-foreground: 232 10% 60%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 225 25% 16%;
-    --accent-foreground: 232 17% 90%;
+    --accent: 0 0% 18%;
+    --accent-foreground: 0 0% 85%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 232 17% 90%;
+    --destructive-foreground: 0 0% 85%;
 
-    --border: 225 25% 22%;
-    --input: 225 25% 16%;
-    --ring: 214 100% 60%;
+    --border: 0 0% 25%;
+    --input: 0 0% 18%;
+    --ring: 0 0% 55%;
     
-    /* Neumorphic shadows - dark theme */
-    --shadow-neu-inset: inset 4px 4px 8px rgba(0, 0, 0, 0.5), inset -4px -4px 8px rgba(55, 65, 95, 0.3);
-    --shadow-neu-outset: 4px 4px 8px rgba(0, 0, 0, 0.5), -4px -4px 8px rgba(55, 65, 95, 0.3);
-    --shadow-neu-pressed: inset 6px 6px 12px rgba(0, 0, 0, 0.6), inset -6px -6px 12px rgba(55, 65, 95, 0.4);
-    --shadow-neu-hover: 6px 6px 12px rgba(0, 0, 0, 0.4), -6px -6px 12px rgba(55, 65, 95, 0.25);
-    --shadow-neu-float: 8px 8px 16px rgba(0, 0, 0, 0.5), -8px -8px 16px rgba(55, 65, 95, 0.3);
+    /* Monochrome neumorphic shadows - dark theme */
+    --shadow-neu-inset: inset 4px 4px 8px rgba(0, 0, 0, 0.5), inset -4px -4px 8px rgba(255, 255, 255, 0.02);
+    --shadow-neu-outset: 4px 4px 8px rgba(0, 0, 0, 0.5), -4px -4px 8px rgba(255, 255, 255, 0.02);
+    --shadow-neu-pressed: inset 6px 6px 12px rgba(0, 0, 0, 0.6), inset -6px -6px 12px rgba(255, 255, 255, 0.03);
+    --shadow-neu-hover: 6px 6px 12px rgba(0, 0, 0, 0.4), -6px -6px 12px rgba(255, 255, 255, 0.015);
+    --shadow-neu-float: 8px 8px 16px rgba(0, 0, 0, 0.5), -8px -8px 16px rgba(255, 255, 255, 0.02);
     --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.4);
   }
 }

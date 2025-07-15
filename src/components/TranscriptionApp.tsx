@@ -50,9 +50,11 @@ import { HistoryDrawer } from './HistoryDrawer';
 import { AppSidebar } from './AppSidebar';
 import { GlobalSearch } from './GlobalSearch';
 import { bergetApi } from '@/services/bergetApi';
+import { cn } from '@/lib/utils';
 
 interface TranscriptionAppProps {
   onLogout: () => void;
+  className?: string;
 }
 
 type ProcessingStep = 'idle' | 'transcribing' | 'summarizing' | 'completed' | 'error';
@@ -122,9 +124,7 @@ const PROTOCOL_TEMPLATES = [
   }
 ];
 
-export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ 
-  onLogout 
-}) => {
+export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, className }) => {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [fullTranscription, setFullTranscription] = useState('');
   const [summary, setSummary] = useState('');
@@ -457,14 +457,11 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   };
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+    <div className={cn("min-h-screen", className)}>
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full">
         {/* Sidebar */}
-        <AppSidebar 
-          onShowHistory={handleShowHistory}
-          onLogout={onLogout}
-          meetingsCount={meetings.length}
-        />
+        <AppSidebar onLogout={onLogout} />
 
         {/* Huvudinnehåll */}
         <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
@@ -582,6 +579,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
         onEditMeetingTitle={editMeetingTitle}
         onStartChat={handleStartChat}
       />
-    </SidebarProvider>
+      </SidebarProvider>
+    </div>
   );
 };

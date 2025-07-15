@@ -36,8 +36,12 @@ export default {
 				},
 				recording: {
 					DEFAULT: 'hsl(var(--recording))',
-					light: 'hsl(var(--recording-light))',
-					pulse: 'hsl(var(--recording-pulse))'
+					foreground: 'hsl(var(--recording) / 0.1)'
+				},
+				signal: {
+					good: 'hsl(var(--signal-good))',
+					medium: 'hsl(var(--signal-medium))',
+					poor: 'hsl(var(--signal-poor))',
 				},
 				success: {
 					DEFAULT: 'hsl(var(--success))',
