@@ -40,6 +40,7 @@ import { useHybridTranscription } from '@/hooks/useHybridTranscription';
 import { useMeetingAnalysis } from '@/hooks/useMeetingAnalysis';
 import { RecordingButton } from './RecordingButton';
 import { HybridTranscription } from './HybridTranscription';
+import { ChatInterface } from './ChatInterface';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -492,7 +493,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </div>
         ) : (
           <Tabs defaultValue="transcription" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 apple-card bg-muted/40 p-2 h-auto">
+            <TabsList className="grid w-full grid-cols-4 apple-card bg-muted/40 p-2 h-auto">
               <TabsTrigger 
                 value="transcription" 
                 className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -505,7 +506,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
               >
                 <FileText className="w-4 h-4 mr-2" />
-                Protokoll & Mallar
+                Protokoll
               </TabsTrigger>
               <TabsTrigger 
                 value="meetings" 
@@ -513,6 +514,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
               >
                 <Calendar className="w-4 h-4 mr-2" />
                 Mina Möten
+              </TabsTrigger>
+              <TabsTrigger 
+                value="chat" 
+                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                AI Chat
               </TabsTrigger>
             </TabsList>
 
@@ -939,20 +947,11 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                             </TabsContent>
 
                             <TabsContent value="chat" className="mt-4">
-                              <Card>
-                                <CardHeader>
-                                  <CardTitle className="text-sm">Chat med mötet</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                  <div className="text-center py-8 text-muted-foreground">
-                                    <MessageSquare className="w-8 h-8 mx-auto mb-2" />
-                                    <p>Chat-funktion kommer snart</p>
-                                    <p className="text-xs mt-1">
-                                      Du kommer kunna ställa frågor om mötet här
-                                    </p>
-                                  </div>
-                                </CardContent>
-                              </Card>
+                              <ChatInterface
+                                meetingContext={meeting.originalTranscription || meeting.summary}
+                                meetingTitle={meeting.title}
+                                className="h-[400px]"
+                              />
                             </TabsContent>
                           </Tabs>
                         </AccordionContent>
@@ -962,6 +961,18 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Global AI Chat Tab */}
+          <TabsContent value="chat" className="space-y-6 mt-8">
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <h2 className="text-2xl font-semibold tracking-tight">AI-assistent</h2>
+                <p className="text-muted-foreground">Ställ frågor om dina möten, protokoll och mötesplanering</p>
+              </div>
+              
+              <ChatInterface className="mx-auto" />
+            </div>
           </TabsContent>
         </Tabs>
         )}

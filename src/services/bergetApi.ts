@@ -222,6 +222,46 @@ class BergetApiService {
     return result.choices[0].message.content.trim();
   }
 
+  // Chatta med AI om möten
+  async chatWithMeetings(message: string, meetingContext?: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const systemPrompt = meetingContext 
+      ? `Du är en AI-assistent som hjälper med att analysera och diskutera möten. Du har tillgång till följande möteskontext: "${meetingContext}". Svara på svenska och ge hjälpsamma och relevanta svar baserat på mötesinnehållet.`
+      : `Du är en AI-assistent som hjälper med mötesanalys och protokollhantering. Du kan svara på frågor om möten generellt, ge råd om bästa praxis för mötesstrukturer, protokollskrivning och uppföljning. Svara alltid på svenska.`;
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: message
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Chat misslyckades');
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content.trim();
+  }
+
   // Analysera pågående möte för att identifiera typ och deltagare
   async analyzeMeeting(transcriptionText: string): Promise<MeetingAnalysisResponse> {
     if (!this.apiKey) {
