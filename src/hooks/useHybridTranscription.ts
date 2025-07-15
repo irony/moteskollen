@@ -188,12 +188,21 @@ export const useHybridTranscription = (
       const { bergetApi } = await import('@/services/bergetApi');
       const result = await bergetApi.transcribeAudio(audioBlob);
 
+      // Rensa bort konstiga tecken och tystnadsindikatorer från Berget AI
+      const cleanText = cleanBergetText(result.text);
+      
+      // Hoppa över tomma eller meningslösa segment
+      if (!cleanText || cleanText.length < 2) {
+        console.log('Hoppade över tomt Berget-segment');
+        return;
+      }
+
       // Uppdatera segmentet med Berget AI:s resultat
       setSegments(prev => prev.map(segment => 
         segment.id === segmentId
           ? {
               ...segment,
-              text: result.text,
+              text: cleanText,
               isLocal: false,
               confidence: 0.95 // Hög confidence för Berget AI
             }
@@ -202,13 +211,37 @@ export const useHybridTranscription = (
 
       // Callback för fullständig transkribering
       if (onBergetTranscription) {
-        onBergetTranscription(result.text);
+        onBergetTranscription(cleanText);
       }
 
     } catch (err) {
       console.error('Berget transcription error:', err);
       // Behåll lokala resultatet vid fel
     }
+  };
+
+  // Funktion för att rensa bort konstiga tecken från Berget AI
+  const cleanBergetText = (text: string): string => {
+    if (!text) return '';
+    
+    // Ta bort konstiga HTML-liknande tecken och repetitiva mönster
+    let cleaned = text
+      // Ta bort &lt i&gt mönster
+      .replace(/&lt\s*i&gt/gi, '')
+      // Ta bort andra HTML entities
+      .replace(/&[a-zA-Z0-9#]+;/g, '')
+      // Ta bort repetitiva tecken (mer än 3 i rad)
+      .replace(/(.)\1{3,}/g, '$1')
+      // Ta bort extra whitespace
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Om texten bara består av repetitiva tecken eller är för kort, ignorera
+    if (cleaned.length < 3 || /^(.)\1*$/.test(cleaned)) {
+      return '';
+    }
+    
+    return cleaned;
   };
 
   const startRecording = useCallback(async () => {
