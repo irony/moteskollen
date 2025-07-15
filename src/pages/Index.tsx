@@ -4,6 +4,7 @@ import { TranscriptionApp } from '@/components/TranscriptionApp';
 import { MeetingList } from '@/components/MeetingList';
 import { MeetingDetail } from '@/components/MeetingDetail';
 import { bergetApi } from '@/services/bergetApi';
+import { securityService } from '@/lib/security';
 
 type AppState = 'auth' | 'meetings' | 'recording' | 'meeting-detail';
 
@@ -25,7 +26,7 @@ const Index = () => {
 
   useEffect(() => {
     // Kontrollera om användaren redan är autentiserad
-    const bergetToken = localStorage.getItem('berget_token');
+    const bergetToken = securityService.getSecureToken('berget_token');
     const apiKey = bergetApi.getApiKey();
     if (bergetToken || apiKey) {
       setAppState('meetings'); // Startar på möteslistan istället för inspelning
@@ -37,9 +38,8 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    // Rensa Berget API tokens
-    localStorage.removeItem('berget_token');
-    localStorage.removeItem('berget_refresh_token');
+    // Rensa alla autentiseringsdata säkert
+    securityService.clearAllAuthData();
     bergetApi.clearApiKey();
     setAppState('auth');
     setSelectedMeeting(null);

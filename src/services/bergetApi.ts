@@ -37,7 +37,10 @@ class BergetApiService {
   private apiKey: string | null = null;
 
   constructor() {
-    this.apiKey = localStorage.getItem('berget_api_key');
+    // Import security service dynamically to avoid circular imports
+    import('../lib/security').then(({ securityService }) => {
+      this.apiKey = securityService.getSecureToken('berget_api_key');
+    });
   }
 
   // Device Token Flow för att skapa konto/logga in
@@ -121,7 +124,9 @@ class BergetApiService {
 
   setApiKey(key: string) {
     this.apiKey = key;
-    localStorage.setItem('berget_api_key', key);
+    import('../lib/security').then(({ securityService }) => {
+      securityService.setSecureToken('berget_api_key', key);
+    });
   }
 
   getApiKey(): string | null {
@@ -130,13 +135,23 @@ class BergetApiService {
 
   clearApiKey() {
     this.apiKey = null;
-    localStorage.removeItem('berget_api_key');
+    import('../lib/security').then(({ securityService }) => {
+      securityService.removeSecureToken('berget_api_key');
+    });
   }
 
   // Transkribera ljudfil
   async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
     if (!this.apiKey) {
       throw new Error('API-nyckel saknas');
+    }
+
+    // Validate file upload
+    const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
+    const { securityService } = await import('../lib/security');
+    const validation = securityService.validateFileUpload(file);
+    if (!validation.valid) {
+      throw new Error(validation.error);
     }
 
     const formData = new FormData();
@@ -165,24 +180,12 @@ class BergetApiService {
       throw new Error('API-nyckel saknas');
     }
 
-    // Kontrollera filstorlek (max 10MB)
-    if (documentBlob.size > 10 * 1024 * 1024) {
-      throw new Error('Filen är för stor. Max storlek är 10MB.');
-    }
-
-    // Kontrollera filtyp
-    const supportedTypes = [
-      'application/pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/msword',
-      'text/plain',
-      'image/jpeg',
-      'image/png',
-      'image/jpg'
-    ];
-    
-    if (!supportedTypes.includes(documentBlob.type)) {
-      throw new Error(`Filtyp ${documentBlob.type} stöds inte. Använd PDF, DOC, DOCX, TXT, JPG eller PNG.`);
+    // Use security service for file validation
+    const file = new File([documentBlob], 'document', { type: documentBlob.type });
+    const { securityService } = await import('../lib/security');
+    const validation = securityService.validateFileUpload(file);
+    if (!validation.valid) {
+      throw new Error(validation.error);
     }
 
     console.log(`Processar dokument: ${documentBlob.type}, storlek: ${(documentBlob.size / 1024).toFixed(1)}KB`);

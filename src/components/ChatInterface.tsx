@@ -8,6 +8,7 @@ import { bergetApi } from '@/services/bergetApi';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { securityService } from '@/lib/security';
 
 interface ChatMessage {
   id: string;
@@ -57,10 +58,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
+    // Sanitize user input
+    const sanitizedMessage = securityService.sanitizeInput(inputMessage.trim());
+    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: inputMessage.trim(),
+      content: sanitizedMessage,
       timestamp: new Date()
     };
 
@@ -71,10 +75,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       const response = await bergetApi.chatWithMeetings(userMessage.content, meetingContext);
       
+      // Sanitize the AI response
+      const sanitizedResponse = securityService.sanitizeHtml(response);
+      
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response,
+        content: sanitizedResponse,
         timestamp: new Date()
       };
 
@@ -82,7 +89,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     } catch (error: any) {
       toast({
         title: "Chat misslyckades",
-        description: error.message,
+        description: securityService.createSafeErrorMessage(error),
         variant: "destructive"
       });
     } finally {

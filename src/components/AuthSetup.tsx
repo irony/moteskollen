@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, ExternalLink, Shield, Key } from 'lucide-react';
 import { bergetApi } from '@/services/bergetApi';
+import { securityService } from '@/lib/security';
 
 interface AuthSetupProps {
   onAuthenticated: () => void;
@@ -35,7 +36,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
       // Starta polling för token
       pollForToken(authData.device_code, authData.interval);
     } catch (err: any) {
-      setError(`Fel vid startande av autentisering: ${err.message}`);
+      setError(securityService.createSafeErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -58,16 +59,16 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             // Använd access token för att skapa API-nyckel
             await bergetApi.createApiKey(token);
             
-            // Spara bara refresh token för framtida användning
-            localStorage.setItem('berget_token', token);
+            // Spara tokens säkert
+            securityService.setSecureToken('berget_token', token);
             if (response.refresh_token) {
-              localStorage.setItem('berget_refresh_token', response.refresh_token);
+              securityService.setSecureToken('berget_refresh_token', response.refresh_token);
             }
             
             onAuthenticated();
           } catch (apiError: any) {
             console.error('API key creation error:', apiError);
-            setError(`Kunde inte skapa API-nyckel: ${apiError.message}`);
+            setError(securityService.createSafeErrorMessage(apiError));
             setStep('choice');
           }
         } else if (response.status === 'pending') {
@@ -94,7 +95,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             setStep('choice');
           }
         } else {
-          setError(`Nätverksfel: ${err.message}`);
+          setError(securityService.createSafeErrorMessage(err));
           setStep('choice');
         }
       }
@@ -110,10 +111,11 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
     }
 
     try {
-      bergetApi.setApiKey(manualKey.trim());
+      const sanitizedKey = securityService.sanitizeInput(manualKey.trim());
+      bergetApi.setApiKey(sanitizedKey);
       onAuthenticated();
     } catch (err: any) {
-      setError(`Fel vid API-nyckel: ${err.message}`);
+      setError(securityService.createSafeErrorMessage(err));
     }
   };
 
