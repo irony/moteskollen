@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Loader2, 
   FileText, 
@@ -13,7 +15,14 @@ import {
   AlertCircle, 
   Settings, 
   LogOut,
-  Shield
+  Shield,
+  Mic,
+  Users,
+  Phone,
+  GraduationCap,
+  BookOpen,
+  Briefcase,
+  FileSearch
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -28,6 +37,52 @@ interface TranscriptionAppProps {
 
 type ProcessingStep = 'idle' | 'transcribing' | 'summarizing' | 'completed' | 'error';
 
+// Mallar för olika typer av renskrivning
+const PROTOCOL_TEMPLATES = [
+  {
+    id: 'meeting',
+    name: 'Mötesprotokoll',
+    icon: Users,
+    description: 'Strukturerat protokoll för möten med agenda och beslut',
+    systemPrompt: 'Skapa ett strukturerat mötesprotokoll med tydlig sammanfattning, beslut och handlingspoäng.'
+  },
+  {
+    id: 'interview',
+    name: 'Intervju',
+    icon: Phone,
+    description: 'Renskrift av intervjuer med frågor och svar',
+    systemPrompt: 'Skapa en renskrift av intervjun med tydlig uppdelning mellan frågor och svar.'
+  },
+  {
+    id: 'lecture',
+    name: 'Föreläsning',
+    icon: GraduationCap,
+    description: 'Sammanfattning av föreläsningar och presentationer',
+    systemPrompt: 'Skapa en strukturerad sammanfattning av föreläsningen med huvudpoänger och viktiga koncept.'
+  },
+  {
+    id: 'conversation',
+    name: 'Samtal',
+    icon: BookOpen,
+    description: 'Allmän renskrift av samtal och diskussioner',
+    systemPrompt: 'Skapa en ren och strukturerad renskrift av samtalet.'
+  },
+  {
+    id: 'business',
+    name: 'Affärsmöte',
+    icon: Briefcase,
+    description: 'Professionellt protokoll för affärsmöten',
+    systemPrompt: 'Skapa ett professionellt affärsprotokoll med tydliga beslut, åtgärder och ansvariga.'
+  },
+  {
+    id: 'research',
+    name: 'Forskning',
+    icon: FileSearch,
+    description: 'Detaljerad transkribering för forskningsändamål',
+    systemPrompt: 'Skapa en detaljerad och exakt transkribering för forskningsändamål.'
+  }
+];
+
 export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ 
   onShowProtocols, 
   onLogout 
@@ -37,6 +92,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [summary, setSummary] = useState('');
   const [actionItems, setActionItems] = useState<string[]>([]);
   const [meetingTitle, setMeetingTitle] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('meeting');
   const [error, setError] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -100,17 +156,19 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     }
   };
 
-  const saveProtocol = () => {
+  const handleSaveProtocol = () => {
     const allText = segments.map(s => s.text).join(' ') + ' ' + fullTranscription;
     if (!allText.trim() || !summary) return;
 
+    const selectedTemplateData = PROTOCOL_TEMPLATES.find(t => t.id === selectedTemplate);
     const protocol = {
       id: Date.now().toString(),
       date: new Date(),
-      title: meetingTitle || `Möte ${new Date().toLocaleDateString('sv-SE')}`,
+      title: meetingTitle || `${selectedTemplateData?.name || 'Protokoll'} ${new Date().toLocaleDateString('sv-SE')}`,
       summary,
       actionItems,
-      originalTranscription: allText.trim()
+      originalTranscription: allText.trim(),
+      templateType: selectedTemplate
     };
 
     const existing = JSON.parse(localStorage.getItem('meeting_protocols') || '[]');
@@ -122,7 +180,10 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       description: "Du kan hitta det i protokollistan.",
     });
 
-    // Återställ formuläret
+    handleReset();
+  };
+
+  const handleReset = () => {
     setProcessingStep('idle');
     setFullTranscription('');
     setSummary('');
@@ -148,6 +209,8 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       default: return '';
     }
   };
+
+  const selectedTemplateData = PROTOCOL_TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4">
@@ -179,125 +242,182 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </AlertDescription>
         </Alert>
 
-        {/* Inspelningssektion */}
-        <Card className="shadow-elegant">
-          <CardHeader className="text-center">
-            <CardTitle>Spela in ditt möte</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex justify-center">
-              <RecordingButton
-                isRecording={isRecording}
-                isPaused={false}
-                audioLevel={audioLevel}
-                onStartRecording={handleStartRecording}
-                onStopRecording={handleStopRecording}
-                onPauseRecording={() => {}} // Inte använt i hybrid-läge
-                onResumeRecording={() => {}} // Inte använt i hybrid-läge
-                disabled={processingStep === 'summarizing'}
-              />
-            </div>
+        {/* Huvudinnehåll med tabs */}
+        <Tabs defaultValue="transcription" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="transcription">
+              <Mic className="w-4 h-4 mr-2" />
+              Transkribering
+            </TabsTrigger>
+            <TabsTrigger value="protocol">
+              <FileText className="w-4 h-4 mr-2" />
+              Protokoll & Mallar
+            </TabsTrigger>
+          </TabsList>
 
-            {hybridError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{hybridError}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Processing status */}
-            {processingStep !== 'idle' && processingStep !== 'error' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{getStatusMessage()}</span>
-                  <Badge variant={processingStep === 'completed' ? 'default' : 'secondary'}>
-                    {processingStep === 'completed' ? '✓' : <Loader2 className="w-3 h-3 animate-spin" />}
-                  </Badge>
+          {/* Transkribering Tab */}
+          <TabsContent value="transcription" className="space-y-6">
+            {/* Inspelningskontroller */}
+            <Card className="shadow-elegant">
+              <CardHeader className="text-center">
+                <CardTitle>Spela in ditt möte</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex justify-center">
+                  <RecordingButton
+                    isRecording={isRecording}
+                    isPaused={false}
+                    audioLevel={audioLevel}
+                    onStartRecording={handleStartRecording}
+                    onStopRecording={handleStopRecording}
+                    onPauseRecording={() => {}}
+                    onResumeRecording={() => {}}
+                    disabled={processingStep === 'summarizing'}
+                  />
                 </div>
-                <Progress value={getProgressValue()} className="h-2" />
-              </div>
-            )}
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-        </Card>
+                {hybridError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{hybridError}</AlertDescription>
+                  </Alert>
+                )}
 
-        {/* Hybrid Live Transkribering */}
-        <HybridTranscription 
-          segments={segments}
-          audioLevel={audioLevel}
-          isActive={isRecording}
-          onStartRecording={handleStartRecording}
-        />
+                {processingStep !== 'idle' && processingStep !== 'error' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{getStatusMessage()}</span>
+                      <Badge variant={processingStep === 'completed' ? 'default' : 'secondary'}>
+                        {processingStep === 'completed' ? '✓' : <Loader2 className="w-3 h-3 animate-spin" />}
+                      </Badge>
+                    </div>
+                    <Progress value={getProgressValue()} className="h-2" />
+                  </div>
+                )}
 
-        {/* Resultat */}
-        {processingStep === 'completed' && (
-          <Card className="shadow-elegant">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-success" />
-                Protokoll skapat
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <label htmlFor="meeting-title" className="block text-sm font-medium mb-2">
-                  Mötestitel
-                </label>
-                <Input
-                  id="meeting-title"
-                  placeholder="Ange en titel för mötet..."
-                  value={meetingTitle}
-                  onChange={(e) => setMeetingTitle(e.target.value)}
-                />
-              </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
 
-              <div>
-                <h3 className="text-lg font-semibold mb-3">Sammanfattning</h3>
-                <Textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  className="min-h-32"
-                  placeholder="Protokollsammanfattning..."
-                />
-              </div>
+            {/* Hybrid Live Transkribering */}
+            <HybridTranscription 
+              segments={segments}
+              audioLevel={audioLevel}
+              isActive={isRecording}
+              onStartRecording={handleStartRecording}
+            />
+          </TabsContent>
 
-
-              {actionItems.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-semibold mb-3">Handlingsplan</h3>
-                  <ul className="space-y-2">
-                    {actionItems.map((item, index) => (
-                      <li key={index} className="flex items-start space-x-2">
-                        <span className="w-2 h-2 bg-warning rounded-full mt-2 flex-shrink-0" />
-                        <span className="text-sm">{item}</span>
-                      </li>
+          {/* Protokoll Tab */}
+          <TabsContent value="protocol" className="space-y-6">
+            {/* Mallval */}
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Settings className="w-5 h-5 mr-2" />
+                  Välj typ av renskrivning
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Välj mall för renskrivning" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROTOCOL_TEMPLATES.map((template) => (
+                      <SelectItem key={template.id} value={template.id}>
+                        <div className="flex items-center">
+                          <template.icon className="w-4 h-4 mr-2" />
+                          <div>
+                            <div className="font-medium">{template.name}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {template.description}
+                            </div>
+                          </div>
+                        </div>
+                      </SelectItem>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </SelectContent>
+                </Select>
+                
+                {/* Beskrivning av vald mall */}
+                {selectedTemplateData && (
+                  <div className="mt-4 p-4 bg-muted rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <selectedTemplateData.icon className="w-5 h-5 mr-2 text-primary" />
+                      <h4 className="font-semibold">{selectedTemplateData.name}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedTemplateData.description}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              <div className="flex space-x-3">
-                <Button onClick={saveProtocol} className="flex-1">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Spara protokoll
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setProcessingStep('idle')}
-                  className="flex-1"
-                >
-                  Spela in nytt möte
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            {/* Resultat */}
+            {processingStep === 'completed' && (
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2 text-success" />
+                    {selectedTemplateData?.name || 'Protokoll'} skapat
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Titel</label>
+                    <Input
+                      value={meetingTitle}
+                      onChange={(e) => setMeetingTitle(e.target.value)}
+                      placeholder={`Ange en titel för ${selectedTemplateData?.name.toLowerCase() || 'protokollet'}...`}
+                      className="mb-4"
+                    />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">Sammanfattning</h3>
+                    <Textarea
+                      value={summary}
+                      onChange={(e) => setSummary(e.target.value)}
+                      className="min-h-32"
+                      placeholder="Sammanfattning..."
+                    />
+                  </div>
+
+                  {actionItems.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-3">Handlingspoäng</h3>
+                      <ul className="space-y-2">
+                        {actionItems.map((item, index) => (
+                          <li key={index} className="flex items-start space-x-2">
+                            <span className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                            <span className="text-sm">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  <div className="flex space-x-2 pt-4 border-t">
+                    <Button onClick={handleSaveProtocol} className="flex-1">
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Spara {selectedTemplateData?.name.toLowerCase() || 'protokoll'}
+                    </Button>
+                    <Button variant="outline" onClick={handleReset}>
+                      Börja om
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
