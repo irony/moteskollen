@@ -51,13 +51,25 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
         const response = await bergetApi.getAccessToken(deviceCode);
 
         if (response.access_token || response.token) {
-          // Token erhållen - autentisering klar
+          // Token erhållen - nu skapa API-nyckel
           const token = response.access_token || response.token;
-          localStorage.setItem('berget_token', token);
-          if (response.refresh_token) {
-            localStorage.setItem('berget_refresh_token', response.refresh_token);
+          
+          try {
+            // Använd access token för att skapa API-nyckel
+            await bergetApi.createApiKey(token);
+            
+            // Spara bara refresh token för framtida användning
+            localStorage.setItem('berget_token', token);
+            if (response.refresh_token) {
+              localStorage.setItem('berget_refresh_token', response.refresh_token);
+            }
+            
+            onAuthenticated();
+          } catch (apiError: any) {
+            console.error('API key creation error:', apiError);
+            setError(`Kunde inte skapa API-nyckel: ${apiError.message}`);
+            setStep('choice');
           }
-          onAuthenticated();
         } else if (response.status === 'pending') {
           // Väntar fortfarande på användarens godkännande
           attempts++;

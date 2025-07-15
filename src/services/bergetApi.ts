@@ -78,21 +78,18 @@ class BergetApiService {
 
     const tokenData = await response.json();
     
-    // Om vi får en token, spara den
-    if (tokenData.access_token || tokenData.token) {
-      const token = tokenData.access_token || tokenData.token;
-      this.setApiKey(token);
-    }
+    // Vi behöver inte spara token här - det görs i createApiKey
+    // Token används bara för att skapa API-nyckel
     
     return tokenData;
   }
 
-  // Skapa API-nyckel med Keycloak token
-  async createApiKeyWithKeycloak(keycloakToken: string): Promise<string> {
-    const response = await fetch(`${this.baseUrl}/v1/auth/api-keys`, {
+  // Skapa API-nyckel med access token
+  async createApiKey(accessToken: string): Promise<string> {
+    const response = await fetch(`${this.baseUrl}/v1/api-keys`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${keycloakToken}`,
+        'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -107,7 +104,7 @@ class BergetApiService {
     }
 
     const result = await response.json();
-    const apiKey = result.api_key || result.key;
+    const apiKey = result.key;
     
     if (!apiKey) {
       throw new Error('API-nyckel saknas i svaret');
@@ -115,6 +112,11 @@ class BergetApiService {
 
     this.setApiKey(apiKey);
     return apiKey;
+  }
+
+  // Skapa API-nyckel med Keycloak token (behålls för bakåtkompatibilitet)
+  async createApiKeyWithKeycloak(keycloakToken: string): Promise<string> {
+    return this.createApiKey(keycloakToken);
   }
 
   setApiKey(key: string) {
