@@ -31,10 +31,12 @@ import {
   Edit3,
   Trash2,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Brain
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
+import { useMeetingAnalysis } from '@/hooks/useMeetingAnalysis';
 import { RecordingButton } from './RecordingButton';
 import { HybridTranscription } from './HybridTranscription';
 import { bergetApi } from '@/services/bergetApi';
@@ -117,6 +119,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
+  const [analysisStarted, setAnalysisStarted] = useState(false);
 
   const { toast } = useToast();
 
@@ -139,6 +142,8 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     stopRecording,
     error: hybridError 
   } = useHybridTranscription(handleBergetTranscription);
+
+  const { analysis, isAnalyzing, analyzeTranscription } = useMeetingAnalysis();
 
   const handleStartRecording = useCallback(async () => {
     setError(null);
@@ -165,6 +170,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
   const handleStopRecording = useCallback(async () => {
     await stopRecording();
+    setAnalysisStarted(false);
     
     // Uppdatera möte till processing
     if (currentMeetingId) {
@@ -270,7 +276,23 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     setActionItems([]);
     setMeetingTitle('');
     setCurrentMeetingId(null);
+    setAnalysisStarted(false);
   };
+
+  // Auto-analys efter en minut av inspelning
+  React.useEffect(() => {
+    if (!isRecording || !currentMeetingId || analysisStarted) return;
+
+    const timer = setTimeout(async () => {
+      const currentTranscription = segments.map(s => s.text).join(' ');
+      if (currentTranscription.length > 50) {
+        setAnalysisStarted(true);
+        await analyzeTranscription(currentTranscription);
+      }
+    }, 60000); // 1 minut
+
+    return () => clearTimeout(timer);
+  }, [isRecording, currentMeetingId, segments, analysisStarted, analyzeTranscription]);
 
   const deleteMeeting = (meetingId: string) => {
     const updatedMeetings = meetings.filter(m => m.id !== meetingId);
@@ -418,7 +440,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="transcription">
                 <Mic className="w-4 h-4 mr-2" />
-                Transkribering
+                Live
               </TabsTrigger>
               <TabsTrigger value="protocol">
                 <FileText className="w-4 h-4 mr-2" />
@@ -478,6 +500,57 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 )}
               </CardContent>
             </Card>
+
+            {/* Live Mötesanalys */}
+            {(analysis || isAnalyzing) && (
+              <Card className="border-l-4 border-l-blue-500 shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="h-5 w-5" />
+                    Live Mötesanalys
+                    {isAnalyzing && <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {analysis && (
+                    <>
+                      <div>
+                        <strong className="text-sm font-medium">Syfte:</strong>
+                        <p className="text-sm text-muted-foreground">{analysis.purpose}</p>
+                      </div>
+                      <div>
+                        <strong className="text-sm font-medium">Förslag på titel:</strong>
+                        <p className="text-sm text-muted-foreground">{analysis.suggestedTitle}</p>
+                      </div>
+                      {analysis.participants.length > 0 && (
+                        <div>
+                          <strong className="text-sm font-medium">Deltagare:</strong>
+                          <p className="text-sm text-muted-foreground">{analysis.participants.join(', ')}</p>
+                        </div>
+                      )}
+                      <div>
+                        <strong className="text-sm font-medium">Uppskattade deltagare:</strong>
+                        <p className="text-sm text-muted-foreground">{analysis.estimatedParticipants} personer</p>
+                      </div>
+                      <div>
+                        <strong className="text-sm font-medium">Rekommenderad mall:</strong>
+                        <p className="text-sm text-muted-foreground">{analysis.suggestedTemplate}</p>
+                      </div>
+                      {analysis.actionPoints.length > 0 && (
+                        <div>
+                          <strong className="text-sm font-medium">Identifierade handlingspunkter:</strong>
+                          <ul className="text-sm text-muted-foreground list-disc list-inside mt-1">
+                            {analysis.actionPoints.map((point, index) => (
+                              <li key={index}>{point}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Live Transkribering Display */}
             {(isRecording || segments.length > 0) && (

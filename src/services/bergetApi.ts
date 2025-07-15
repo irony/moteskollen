@@ -19,6 +19,16 @@ interface SummaryResponse {
   action_items?: string[];
 }
 
+interface MeetingAnalysisResponse {
+  purpose: string;
+  suggestedTitle: string;
+  participants: string[];
+  estimatedParticipants: number;
+  suggestedTemplate: string;
+  actionPoints: string[];
+  confidence: number;
+}
+
 class BergetApiService {
   private baseUrl = 'https://api.berget.ai';
   private apiKey: string | null = null;
@@ -210,6 +220,74 @@ class BergetApiService {
 
     const result = await response.json();
     return result.choices[0].message.content.trim();
+  }
+
+  // Analysera pågående möte för att identifiera typ och deltagare
+  async analyzeMeeting(transcriptionText: string): Promise<MeetingAnalysisResponse> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: `Analysera denna mötestext och ge en JSON-respons med följande struktur:
+            {
+              "purpose": "kort beskrivning av mötets syfte",
+              "suggestedTitle": "förslag på mötestitel (max 50 tecken)",
+              "participants": ["lista på identifierade deltagare"],
+              "estimatedParticipants": antal_personer_som_pratar,
+              "suggestedTemplate": "typ av möte (standup/review/planning/general)",
+              "actionPoints": ["lista på identifierade handlingspunkter"],
+              "confidence": 0.8
+            }
+            
+            Basera analysen på vad som faktiskt sägs i mötet. Om information saknas, använd "Okänt" eller tomma arrayer.`
+          },
+          {
+            role: 'user',
+            content: `Analysera detta möte: ${transcriptionText}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Mötesanalys misslyckades');
+    }
+
+    const result = await response.json();
+    const content = result.choices[0].message.content;
+    
+    try {
+      // Försök extrahera JSON från svaret
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (e) {
+      console.error('Kunde inte parsa mötesanalys JSON:', e);
+    }
+
+    // Fallback om JSON-parsing misslyckas
+    return {
+      purpose: "Kunde inte analysera mötets syfte",
+      suggestedTitle: "Möte",
+      participants: [],
+      estimatedParticipants: 1,
+      suggestedTemplate: "general",
+      actionPoints: [],
+      confidence: 0.1
+    };
   }
 
   private extractActionItems(text: string): string[] {
