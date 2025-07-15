@@ -157,8 +157,8 @@ class BergetApiService {
 
       console.log('Skickar OCR-begäran...');
 
-      // Försök med async processing för större filer
-      const useAsync = documentBlob.size > 1024 * 1024; // 1MB
+      // Använd alltid async processing
+      const useAsync = true;
 
       const response = await fetch(`${this.baseUrl}/v1/ocr`, {
         method: 'POST',
