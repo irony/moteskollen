@@ -117,6 +117,12 @@ class BergetApiService {
       throw new Error('API-nyckel saknas');
     }
 
+    const currentDate = new Date().toLocaleDateString('sv-SE', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -130,12 +136,22 @@ class BergetApiService {
             content: `Du är en professionell sekreterare som skapar strukturerade mötesprotokoll på svenska. 
             Omvandla den transkriberade texten till ett välorganiserat protokoll med följande struktur:
             
-            1. Sammanfattning av mötet
-            2. Viktiga beslut som fattades
-            3. Handlingspunkter med ansvarig person (om nämnt)
-            4. Uppföljning som behövs
+            # Protokoll
+            **Datum:** ${currentDate}
             
-            Använd professionell ton och korrigera språkfel från transkriberingen. 
+            ## Sammanfattning
+            [Kortfattad sammanfattning av mötet]
+            
+            ## Viktiga beslut
+            [Lista viktiga beslut som fattades]
+            
+            ## Handlingspoäng
+            [Lista åtgärder med ansvarig person om nämnt]
+            
+            ## Uppföljning
+            [Vad som behöver följas upp]
+            
+            Använd markdown-formattering, professionell ton och korrigera språkfel från transkriberingen. 
             Fokusera på substans och viktiga punkter, inte småprat.`
           },
           {

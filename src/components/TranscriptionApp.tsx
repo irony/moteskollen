@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import ReactMarkdown from 'react-markdown';
 import { 
   Loader2, 
   FileText, 
@@ -336,22 +338,94 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </AlertDescription>
         </Alert>
 
-        {/* Huvudinnehåll med tabs */}
-        <Tabs defaultValue="transcription" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="transcription">
-              <Mic className="w-4 h-4 mr-2" />
-              Transkribering
-            </TabsTrigger>
-            <TabsTrigger value="protocol">
-              <FileText className="w-4 h-4 mr-2" />
-              Protokoll & Mallar
-            </TabsTrigger>
-            <TabsTrigger value="meetings">
-              <Calendar className="w-4 h-4 mr-2" />
-              Mina Möten
-            </TabsTrigger>
-          </TabsList>
+        {/* Protokoll visning eller tabs */}
+        {processingStep === 'completed' && summary ? (
+          <div className="space-y-6">
+            {/* Header med tillbaka-knapp */}
+            <div className="flex items-center justify-between">
+              <Button variant="outline" onClick={handleReset}>
+                ← Tillbaka till inspelning
+              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Ny mall
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Välj mall för ny renskrivning</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid grid-cols-2 gap-4 p-4">
+                    {PROTOCOL_TEMPLATES.map((template) => (
+                      <Card key={template.id} className="cursor-pointer hover:bg-muted/50" onClick={() => {
+                        setSelectedTemplate(template.id);
+                        handleReset();
+                      }}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center space-x-3">
+                            <template.icon className="w-6 h-6 text-primary" />
+                            <div>
+                              <h4 className="font-medium">{template.name}</h4>
+                              <p className="text-sm text-muted-foreground">{template.description}</p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+
+            {/* Protokoll visning */}
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <CheckCircle className="w-5 h-5 mr-2 text-success" />
+                    {selectedTemplateData?.name || 'Protokoll'}
+                  </CardTitle>
+                  <Button onClick={handleSaveProtocol} disabled={!summary}>
+                    Spara protokoll
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Titel</label>
+                    <Input
+                      value={meetingTitle}
+                      onChange={(e) => setMeetingTitle(e.target.value)}
+                      placeholder={`Ange en titel för ${selectedTemplateData?.name.toLowerCase() || 'protokollet'}...`}
+                    />
+                  </div>
+                  
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <ReactMarkdown>{summary}</ReactMarkdown>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          <Tabs defaultValue="transcription" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="transcription">
+                <Mic className="w-4 h-4 mr-2" />
+                Transkribering
+              </TabsTrigger>
+              <TabsTrigger value="protocol">
+                <FileText className="w-4 h-4 mr-2" />
+                Protokoll & Mallar
+              </TabsTrigger>
+              <TabsTrigger value="meetings">
+                <Calendar className="w-4 h-4 mr-2" />
+                Mina Möten
+              </TabsTrigger>
+            </TabsList>
 
           {/* Transkribering Tab */}
           <TabsContent value="transcription" className="space-y-6">
@@ -458,62 +532,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
               </CardContent>
             </Card>
 
-            {/* Resultat */}
-            {processingStep === 'completed' && (
-              <Card className="shadow-elegant">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <CheckCircle className="w-5 h-5 mr-2 text-success" />
-                    {selectedTemplateData?.name || 'Protokoll'} skapat
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block">Titel</label>
-                    <Input
-                      value={meetingTitle}
-                      onChange={(e) => setMeetingTitle(e.target.value)}
-                      placeholder={`Ange en titel för ${selectedTemplateData?.name.toLowerCase() || 'protokollet'}...`}
-                      className="mb-4"
-                    />
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">Sammanfattning</h3>
-                    <Textarea
-                      value={summary}
-                      onChange={(e) => setSummary(e.target.value)}
-                      className="min-h-32"
-                      placeholder="Sammanfattning..."
-                    />
-                  </div>
-
-                  {actionItems.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold mb-3">Handlingspoäng</h3>
-                      <ul className="space-y-2">
-                        {actionItems.map((item, index) => (
-                          <li key={index} className="flex items-start space-x-2">
-                            <span className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                            <span className="text-sm">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="flex space-x-2 pt-4 border-t">
-                    <Button onClick={handleSaveProtocol} className="flex-1">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Spara {selectedTemplateData?.name.toLowerCase() || 'protokoll'}
-                    </Button>
-                    <Button variant="outline" onClick={handleReset}>
-                      Börja om
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </TabsContent>
 
           {/* Möten Tab */}
@@ -607,6 +625,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             </Card>
           </TabsContent>
         </Tabs>
+        )}
       </div>
     </div>
   );
