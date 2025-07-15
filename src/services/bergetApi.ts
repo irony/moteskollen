@@ -164,6 +164,38 @@ class BergetApiService {
     };
   }
 
+  // Generera text med AI
+  async generateText(prompt: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 100
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Text generering misslyckades');
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content.trim();
+  }
+
   private extractActionItems(text: string): string[] {
     const actionRegex = /(?:handlingspoint|åtgärd|uppgift|todo).*?(?=\n|$)/gi;
     const matches = text.match(actionRegex) || [];

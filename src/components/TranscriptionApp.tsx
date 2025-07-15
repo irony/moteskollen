@@ -22,7 +22,11 @@ import {
   GraduationCap,
   BookOpen,
   Briefcase,
-  FileSearch
+  FileSearch,
+  Calendar,
+  Clock,
+  Edit3,
+  Trash2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -36,6 +40,18 @@ interface TranscriptionAppProps {
 }
 
 type ProcessingStep = 'idle' | 'transcribing' | 'summarizing' | 'completed' | 'error';
+
+interface Meeting {
+  id: string;
+  date: Date;
+  title: string;
+  status: 'recording' | 'processing' | 'completed';
+  duration?: number;
+  summary?: string;
+  actionItems?: string[];
+  originalTranscription?: string;
+  templateType?: string;
+}
 
 // Mallar för olika typer av renskrivning
 const PROTOCOL_TEMPLATES = [
@@ -94,8 +110,16 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [meetingTitle, setMeetingTitle] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('meeting');
   const [error, setError] = useState<string | null>(null);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
 
   const { toast } = useToast();
+
+  // Ladda möten från localStorage när komponenten mountas
+  React.useEffect(() => {
+    const savedMeetings = JSON.parse(localStorage.getItem('meetings') || '[]');
+    setMeetings(savedMeetings.map((m: any) => ({ ...m, date: new Date(m.date) })));
+  }, []);
 
   // Hybrid transkribering - kombinerar Speech API + Berget AI
   const handleBergetTranscription = useCallback((text: string) => {
@@ -117,18 +141,41 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     setFullTranscription('');
     setSummary('');
     setActionItems([]);
+    
+    // Skapa nytt möte när inspelning startar
+    const newMeeting: Meeting = {
+      id: Date.now().toString(),
+      date: new Date(),
+      title: `Möte ${new Date().toLocaleDateString('sv-SE')} ${new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}`,
+      status: 'recording'
+    };
+    
+    const updatedMeetings = [...meetings, newMeeting];
+    setMeetings(updatedMeetings);
+    setCurrentMeetingId(newMeeting.id);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    
     await startRecording();
-  }, [startRecording]);
+  }, [startRecording, meetings]);
 
   const handleStopRecording = useCallback(async () => {
     await stopRecording();
+    
+    // Uppdatera möte till processing
+    if (currentMeetingId) {
+      const updatedMeetings = meetings.map(m => 
+        m.id === currentMeetingId ? { ...m, status: 'processing' as const } : m
+      );
+      setMeetings(updatedMeetings);
+      localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    }
     
     // Skapa protokoll från all transkriberad text
     const allText = segments.map(s => s.text).join(' ') + ' ' + fullTranscription;
     if (allText.trim().length > 20) {
       await processTranscription(allText.trim());
     }
-  }, [stopRecording, segments, fullTranscription]);
+  }, [stopRecording, segments, fullTranscription, currentMeetingId, meetings]);
 
   const processTranscription = async (text: string) => {
     try {
@@ -138,6 +185,34 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
       const summaryResult = await bergetApi.summarizeToProtocol(text);
       setSummary(summaryResult.summary);
       setActionItems(summaryResult.action_items || []);
+
+      // Generera ett bra namn på mötet baserat på innehållet
+      const meetingNamePrompt = `Baserat på denna mötestext, föreslå ett kort och beskrivande namn på mötet (max 50 tecken): "${text.substring(0, 500)}..."`;
+      
+      try {
+        const nameResult = await bergetApi.generateText(meetingNamePrompt);
+        const suggestedName = nameResult.replace(/['"]/g, '').trim();
+        setMeetingTitle(suggestedName);
+        
+        // Uppdatera mötet med det föreslagna namnet
+        if (currentMeetingId) {
+          const updatedMeetings = meetings.map(m => 
+            m.id === currentMeetingId ? { 
+              ...m, 
+              title: suggestedName,
+              status: 'completed' as const,
+              summary: summaryResult.summary,
+              actionItems: summaryResult.action_items || [],
+              originalTranscription: text,
+              templateType: selectedTemplate
+            } : m
+          );
+          setMeetings(updatedMeetings);
+          localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+        }
+      } catch (nameErr) {
+        console.warn('Kunde inte generera mötesnamn:', nameErr);
+      }
 
       setProcessingStep('completed');
       toast({
@@ -189,6 +264,25 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     setSummary('');
     setActionItems([]);
     setMeetingTitle('');
+    setCurrentMeetingId(null);
+  };
+
+  const deleteMeeting = (meetingId: string) => {
+    const updatedMeetings = meetings.filter(m => m.id !== meetingId);
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    toast({
+      title: "Möte borttaget",
+      description: "Mötet har tagits bort från listan."
+    });
+  };
+
+  const editMeetingTitle = (meetingId: string, newTitle: string) => {
+    const updatedMeetings = meetings.map(m => 
+      m.id === meetingId ? { ...m, title: newTitle } : m
+    );
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
   };
 
   const getProgressValue = () => {
@@ -244,7 +338,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
         {/* Huvudinnehåll med tabs */}
         <Tabs defaultValue="transcription" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="transcription">
               <Mic className="w-4 h-4 mr-2" />
               Transkribering
@@ -252,6 +346,10 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             <TabsTrigger value="protocol">
               <FileText className="w-4 h-4 mr-2" />
               Protokoll & Mallar
+            </TabsTrigger>
+            <TabsTrigger value="meetings">
+              <Calendar className="w-4 h-4 mr-2" />
+              Mina Möten
             </TabsTrigger>
           </TabsList>
 
@@ -416,6 +514,97 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* Möten Tab */}
+          <TabsContent value="meetings" className="space-y-6">
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Calendar className="w-5 h-5 mr-2" />
+                  Mina inspelade möten
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {meetings.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">Inga möten inspelade än</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Börja spela in ett möte för att se det här
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {meetings
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((meeting) => (
+                      <div key={meeting.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center space-x-2">
+                                {meeting.status === 'recording' && (
+                                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                                )}
+                                {meeting.status === 'processing' && (
+                                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                )}
+                                {meeting.status === 'completed' && (
+                                  <CheckCircle className="w-4 h-4 text-green-500" />
+                                )}
+                                <Badge variant={
+                                  meeting.status === 'recording' ? 'destructive' : 
+                                  meeting.status === 'processing' ? 'secondary' : 'default'
+                                }>
+                                  {meeting.status === 'recording' ? 'Spelar in' : 
+                                   meeting.status === 'processing' ? 'Bearbetar' : 'Klart'}
+                                </Badge>
+                              </div>
+                              <div>
+                                <input
+                                  type="text"
+                                  value={meeting.title}
+                                  onChange={(e) => editMeetingTitle(meeting.id, e.target.value)}
+                                  className="font-medium bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary/20 rounded px-1"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4" />
+                                <span>{meeting.date.toLocaleDateString('sv-SE')}</span>
+                                <span>{meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                              {meeting.summary && (
+                                <div className="truncate max-w-md">
+                                  {meeting.summary.substring(0, 80)}...
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {meeting.status === 'completed' && meeting.summary && (
+                              <Button variant="outline" size="sm">
+                                <FileText className="w-4 h-4 mr-1" />
+                                Visa
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => deleteMeeting(meeting.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
