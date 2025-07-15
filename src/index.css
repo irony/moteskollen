@@ -2,15 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Transkriberingsapp för Berget AI - Design System */
-
 @layer base {
   :root {
-    /* Apple-like neutral colors */
+    /* Apple-inspired color palette */
     --background: 0 0% 100%;
     --foreground: 0 0% 9%;
     
-    /* Subtle card backgrounds */
     --card: 0 0% 100%;
     --card-foreground: 0 0% 9%;
 
@@ -23,7 +20,7 @@
     --primary-dark: 214 100% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* Light gray backgrounds */
+    /* Subtle grays */
     --secondary: 0 0% 96%;
     --secondary-foreground: 0 0% 9%;
     
@@ -33,44 +30,137 @@
     --accent: 214 100% 60%;
     --accent-foreground: 0 0% 100%;
 
-    /* Recording states */
+    /* Status colors */
     --recording: 0 84% 60%;
-    --recording-light: 0 84% 70%;
-    --recording-pulse: 0 84% 50%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    
     --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 9%;
 
-    /* Minimal borders */
+    /* Borders and inputs */
     --border: 0 0% 90%;
     --input: 0 0% 97%;
     --ring: 214 100% 60%;
 
-    /* Apple-like border radius */
+    /* Apple-style radius */
     --radius: 1rem;
     
-    /* Subtle shadows and effects */
+    /* Premium shadows */
     --shadow-elegant: 0 4px 16px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.08);
     --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.3);
+    --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     
     /* Smooth transitions */
     --transition-smooth: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-
-    /* Sidebar variables */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 0 0% 9%;
-    --sidebar-primary: 0 0% 9%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 0 0% 96%;
-    --sidebar-accent-foreground: 0 0% 9%;
-    --sidebar-border: 0 0% 90%;
-    --sidebar-ring: 214 100% 60%;
   }
+
+  .dark {
+    --background: 0 0% 9%;
+    --foreground: 0 0% 95%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 214 100% 60%;
+    --primary-foreground: 0 0% 9%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 95%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 0 0% 15%;
+    --accent-foreground: 0 0% 95%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 95%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 15%;
+    --ring: 214 100% 60%;
+    
+    /* Dark shadows */
+    --shadow-elegant: 0 4px 16px 0 rgba(0, 0, 0, 0.3), 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+    --shadow-recording: 0 0 20px rgba(255, 59, 48, 0.4);
+    --shadow-glass: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    --shadow-float: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+}
+
+@layer components {
+  /* Apple-inspired cards */
+  .apple-card {
+    @apply rounded-3xl border-0 bg-card/80 backdrop-blur-sm;
+    box-shadow: var(--shadow-elegant);
+  }
+
+  .apple-glass {
+    @apply bg-background/80 backdrop-blur-lg border-border/30 rounded-2xl;
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* Apple-style buttons */
+  .apple-button {
+    @apply rounded-2xl px-6 py-3 font-medium transition-all duration-200 transform active:scale-95;
+  }
+
+  .apple-button-outline {
+    @apply border-border/50 bg-transparent text-foreground hover:bg-muted/50 rounded-2xl font-medium transition-all duration-200;
+  }
+
+  /* Premium shadows */
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+  
+  .shadow-recording {
+    box-shadow: var(--shadow-recording);
+  }
+
+  .shadow-glass {
+    box-shadow: var(--shadow-glass);
+  }
+
+  .shadow-float {
+    box-shadow: var(--shadow-float);
+  }
+
+  /* Utility classes */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Smooth transitions */
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+}
 
 /* Markdown styling */
 .prose {
@@ -139,88 +229,6 @@
   border: none;
   border-top: 1px solid hsl(var(--border));
   margin: 2em 0;
-}
-
-  .dark {
-    --background: 0 0% 9%;
-    --foreground: 0 0% 95%;
-
-    --card: 0 0% 12%;
-    --card-foreground: 0 0% 95%;
-
-    --popover: 0 0% 12%;
-    --popover-foreground: 0 0% 95%;
-
-    --primary: 214 100% 60%;
-    --primary-foreground: 0 0% 9%;
-
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 95%;
-
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
-
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 95%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 95%;
-
-    --border: 0 0% 20%;
-    --input: 0 0% 15%;
-    --ring: 214 100% 60%;
-    
-    --sidebar-background: 0 0% 9%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 214 100% 60%;
-    --sidebar-primary-foreground: 0 0% 9%;
-    --sidebar-accent: 0 0% 15%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 0 0% 20%;
-    --sidebar-ring: 214 100% 60%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, sans-serif;
-    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-  }
-  
-  /* Anpassade komponenter */
-  .recording-pulse {
-    animation: pulse-recording var(--pulse-duration) infinite;
-  }
-  
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-recording {
-    background: var(--gradient-recording);
-  }
-  
-  .shadow-elegant {
-    box-shadow: var(--shadow-elegant);
-  }
-  
-  .shadow-recording {
-    box-shadow: var(--shadow-recording);
-  }
-  
-  .apple-button {
-    @apply rounded-2xl px-6 py-3 font-medium transition-all duration-200 transform active:scale-95;
-  }
-  
-  .apple-card {
-    @apply rounded-3xl border-0 bg-card/80 backdrop-blur-sm;
-    box-shadow: var(--shadow-elegant);
-  }
 }
 
 @keyframes pulse-recording {

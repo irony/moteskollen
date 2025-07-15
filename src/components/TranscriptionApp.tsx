@@ -43,6 +43,8 @@ import { useMeetingAnalysis } from '@/hooks/useMeetingAnalysis';
 import { RecordingButton } from './RecordingButton';
 import { HybridTranscription } from './HybridTranscription';
 import { ChatInterface } from './ChatInterface';
+import { FooterWithRecording } from './FooterWithRecording';
+import { HistoryDrawer } from './HistoryDrawer';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -132,6 +134,9 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [analysisStarted, setAnalysisStarted] = useState(false);
   const [isProcessingFile, setIsProcessingFile] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [showChat, setShowChat] = useState(false);
 
   const { toast } = useToast();
 
@@ -426,9 +431,30 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 
   const selectedTemplateData = PROTOCOL_TEMPLATES.find(t => t.id === selectedTemplate);
 
+  const handleShowHistory = () => {
+    setIsHistoryOpen(true);
+  };
+
+  const handleSelectMeeting = (meeting: Meeting) => {
+    setSelectedMeeting(meeting);
+    setIsHistoryOpen(false);
+    setShowChat(true);
+  };
+
+  const handleStartChat = (meeting: Meeting) => {
+    setSelectedMeeting(meeting);
+    setIsHistoryOpen(false);
+    setShowChat(true);
+  };
+
+  const handleBackToMain = () => {
+    setShowChat(false);
+    setSelectedMeeting(null);
+  };
+
   return (
-    <div className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 p-4 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
+      <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">
@@ -460,390 +486,60 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </div>
         </div>
 
-        {/* Protokoll visning eller tabs */}
-        {processingStep === 'completed' && summary ? (
-          <div className="space-y-6">
-            <Card className="apple-card border-0">
-              <CardHeader className="pb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-xl font-semibold mb-2">
-                      {meetingTitle || selectedTemplateData?.name || 'Protokoll'}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date().toLocaleDateString('sv-SE', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Klart
-                    </Badge>
-                    <Button 
-                      onClick={handleSaveProtocol}
-                      className="apple-button"
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      Spara protokoll
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="prose max-w-none">
-                  <ReactMarkdown>{summary}</ReactMarkdown>
-                </div>
-                
-                {actionItems.length > 0 && (
-                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                    <h4 className="font-medium mb-2">Handlingspoäng:</h4>
-                    <ul className="space-y-1">
-                      {actionItems.map((item, index) => (
-                        <li key={index} className="text-sm">• {item}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+        {/* Live transkribering */}
+        <HybridTranscription 
+          segments={segments}
+          audioLevel={audioLevel}
+          isActive={isRecording}
+          onStartRecording={handleStartRecording}
+        />
 
-            <div className="flex justify-center">
-              <Button 
-                onClick={handleReset}
-                variant="outline"
-                className="apple-button-outline"
-              >
-                Skapa nytt protokoll
-              </Button>
+        {/* Error display */}
+        {(error || hybridError) && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {error || hybridError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Processing display */}
+        {processingStep !== 'idle' && processingStep !== 'completed' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{getStatusMessage()}</span>
+              <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
             </div>
+            <Progress value={getProgressValue()} className="h-2" />
           </div>
-        ) : (
-          <Tabs defaultValue="record" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 apple-tabs">
-              <TabsTrigger value="record" className="apple-tab">
-                <Mic className="w-4 h-4 mr-2" />
-                Spela in
-              </TabsTrigger>
-              <TabsTrigger value="meetings" className="apple-tab">
-                <Calendar className="w-4 h-4 mr-2" />
-                Mina möten
-              </TabsTrigger>
-              <TabsTrigger value="chat" className="apple-tab">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                AI Chat
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="record" className="space-y-6 mt-8">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Card className="apple-card border-0">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="flex items-center text-lg font-semibold">
-                        <Upload className="w-5 h-5 mr-2 text-primary" />
-                        Ladda upp ljudfil
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="audio-file">Välj ljudfil</Label>
-                          <Input
-                            id="audio-file"
-                            type="file"
-                            accept="audio/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setUploadedFile(file);
-                              }
-                            }}
-                            className="mt-2"
-                          />
-                        </div>
-                        
-                        {uploadedFile && (
-                          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                            <div>
-                              <p className="text-sm font-medium">{uploadedFile.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {(uploadedFile.size / 1024 / 1024).toFixed(1)} MB
-                              </p>
-                            </div>
-                            <Button
-                              onClick={() => handleFileUpload(uploadedFile)}
-                              disabled={isProcessingFile}
-                              className="apple-button"
-                            >
-                              {isProcessingFile ? 'Bearbetar...' : 'Transkribera'}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="apple-card border-0">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="flex items-center text-lg font-semibold">
-                        <Paperclip className="w-5 h-5 mr-2 text-primary" />
-                        Ladda upp dokument
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="document-file">Välj dokument</Label>
-                          <Input
-                            id="document-file"
-                            type="file"
-                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                handleDocumentUpload(file);
-                              }
-                            }}
-                            className="mt-2"
-                          />
-                        </div>
-                        
-                        {documents.length > 0 && (
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Uppladdade dokument:</p>
-                            {documents.map((doc) => (
-                              <div key={doc.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                                <div>
-                                  <p className="text-sm font-medium">{doc.name}</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    {doc.uploadedAt.toLocaleDateString('sv-SE')}
-                                  </p>
-                                </div>
-                                <Badge variant="secondary" className="text-xs">
-                                  Tillgängligt
-                                </Badge>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <Card className="apple-card border-0">
-                  <CardHeader className="pb-4">
-                    <CardTitle className="flex items-center text-lg font-semibold">
-                      {selectedTemplateData?.icon && React.createElement(selectedTemplateData.icon, { className: "w-5 h-5 mr-2 text-primary" })}
-                      Live-inspelning
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="template-select">Välj mötestyp</Label>
-                          <Select 
-                            value={selectedTemplate} 
-                            onValueChange={setSelectedTemplate}
-                          >
-                            <SelectTrigger className="mt-2">
-                              <SelectValue placeholder="Välj mötestyp" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PROTOCOL_TEMPLATES.map((template) => (
-                                <SelectItem key={template.id} value={template.id}>
-                                  <div className="flex items-center">
-                                    <template.icon className="w-4 h-4 mr-2" />
-                                    {template.name}
-                                  </div>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        {selectedTemplateData && (
-                          <div className="p-3 bg-muted/50 rounded-lg">
-                            <p className="text-sm font-medium mb-1">{selectedTemplateData.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {selectedTemplateData.description}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="text-center space-y-4">
-                        <RecordingButton 
-                          isRecording={isRecording}
-                          isPaused={false}
-                          onStartRecording={handleStartRecording}
-                          onStopRecording={handleStopRecording}
-                          onPauseRecording={() => {}}
-                          onResumeRecording={() => {}}
-                          audioLevel={audioLevel}
-                        />
-                        
-                        {isRecording && (
-                          <div className="text-sm text-muted-foreground">
-                            <p>Tryck för att stoppa inspelningen</p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Error display */}
-                      {(error || hybridError) && (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>
-                            {error || hybridError}
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {/* Processing display */}
-                      {processingStep !== 'idle' && processingStep !== 'completed' && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{getStatusMessage()}</span>
-                            <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
-                          </div>
-                          <Progress value={getProgressValue()} className="h-2" />
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Live transkribering */}
-                <HybridTranscription 
-                  segments={segments}
-                  audioLevel={audioLevel}
-                  isActive={isRecording}
-                  onStartRecording={handleStartRecording}
-                />
-              </div>
-            </TabsContent>
-
-            <TabsContent value="meetings" className="space-y-6 mt-8">
-              <Card className="apple-card border-0">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center text-lg font-semibold">
-                    <Calendar className="w-5 h-5 mr-2 text-primary" />
-                    Mina möten
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {meetings.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">Inga möten än. Börja genom att spela in ett möte.</p>
-                    </div>
-                  ) : (
-                    <Accordion type="single" collapsible className="w-full">
-                      {meetings.map((meeting) => (
-                        <AccordionItem key={meeting.id} value={meeting.id}>
-                          <AccordionTrigger className="text-left">
-                            <div className="flex items-center justify-between w-full mr-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="flex items-center space-x-2">
-                                  <Calendar className="w-4 h-4 text-muted-foreground" />
-                                  <div>
-                                    <p className="font-medium">{meeting.title}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      {meeting.date.toLocaleDateString('sv-SE')} - {meeting.date.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' })}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Badge 
-                                  variant={meeting.status === 'completed' ? 'default' : 'secondary'}
-                                  className="text-xs"
-                                >
-                                  {meeting.status === 'completed' ? 'Klart' : 
-                                   meeting.status === 'processing' ? 'Bearbetar' : 'Spelar in'}
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteMeeting(meeting.id);
-                                  }}
-                                  className="text-red-500 hover:text-red-700"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <Tabs defaultValue="summary" className="w-full">
-                              <TabsList className="grid w-full grid-cols-3 apple-tabs">
-                                <TabsTrigger value="summary">Sammanfattning</TabsTrigger>
-                                <TabsTrigger value="transcript">Transkript</TabsTrigger>
-                                <TabsTrigger value="chat">Chat</TabsTrigger>
-                              </TabsList>
-                              
-                              <TabsContent value="summary" className="mt-4">
-                                {meeting.summary ? (
-                                  <div className="prose max-w-none">
-                                    <ReactMarkdown>{meeting.summary}</ReactMarkdown>
-                                  </div>
-                                ) : (
-                                  <p className="text-muted-foreground">Ingen sammanfattning tillgänglig ännu.</p>
-                                )}
-                              </TabsContent>
-                              
-                              <TabsContent value="transcript" className="mt-4">
-                                {meeting.originalTranscription ? (
-                                  <div className="p-4 bg-muted/50 rounded-lg">
-                                    <p className="text-sm whitespace-pre-wrap">{meeting.originalTranscription}</p>
-                                  </div>
-                                ) : (
-                                  <p className="text-muted-foreground">Inget transkript tillgängligt.</p>
-                                )}
-                              </TabsContent>
-                              
-                              <TabsContent value="chat" className="mt-4">
-                                <ChatInterface 
-                                  meetingContext={getMeetingContext(meeting)}
-                                  meetingTitle={meeting.title}
-                                  className="h-[400px]"
-                                />
-                              </TabsContent>
-                            </Tabs>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="chat" className="space-y-6 mt-8">
-              <div className="space-y-6">
-                <div className="text-center space-y-2">
-                  <h2 className="text-2xl font-semibold tracking-tight">AI-assistent</h2>
-                  <p className="text-muted-foreground">Ställ frågor om dina möten, protokoll och mötesplanering</p>
-                </div>
-                
-                <ChatInterface 
-                  meetingContext={getGlobalContext()}
-                  className="h-[600px]"
-                />
-              </div>
-            </TabsContent>
-          </Tabs>
         )}
       </div>
+
+      {/* Apple-style Footer med inspelningsknapp */}
+      <FooterWithRecording
+        isRecording={isRecording}
+        isPaused={false}
+        audioLevel={audioLevel}
+        onStartRecording={handleStartRecording}
+        onStopRecording={handleStopRecording}
+        onPauseRecording={() => {}}
+        onResumeRecording={() => {}}
+        onShowHistory={handleShowHistory}
+        onFileUpload={handleFileUpload}
+        disabled={isProcessingFile}
+      />
+
+      {/* Historik Drawer */}
+      <HistoryDrawer
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        meetings={meetings}
+        onSelectMeeting={handleSelectMeeting}
+        onDeleteMeeting={deleteMeeting}
+        onEditMeetingTitle={editMeetingTitle}
+        onStartChat={handleStartChat}
+      />
     </div>
   );
 };
