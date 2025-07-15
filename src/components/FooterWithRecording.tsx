@@ -129,13 +129,13 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
               )}
             </div>
 
-            {/* Stoppa-knapp (synlig under inspelning) */}
+            {/* Stoppa-knapp (alltid synlig under inspelning) */}
             {isRecording && (
               <Button
                 onClick={onStopRecording}
-                variant="outline"
+                variant="destructive"
                 size="sm"
-                className="rounded-xl bg-background/50 backdrop-blur-sm border-border/50 hover:bg-background/80"
+                className="rounded-xl shadow-lg border-0"
               >
                 <Square className="w-4 h-4 mr-2" fill="currentColor" />
                 Stoppa
