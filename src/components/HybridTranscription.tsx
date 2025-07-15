@@ -23,17 +23,42 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
   audioLevel,
   isActive
 }) => {
+  // TV-Caption effekt: visa bara de senaste 2 segmenten
+  const recentSegments = segments.slice(-2);
+  
+  // Om vi bara har ett segment, visa det som den nedre raden
+  const displaySegments = recentSegments.length === 1 
+    ? [null, recentSegments[0]] 
+    : recentSegments.length === 0 
+    ? [null, null] 
+    : recentSegments;
+
+  const formatTimestamp = (date: Date) => {
+    return date.toLocaleTimeString('sv-SE', { 
+      hour: '2-digit', 
+      minute: '2-digit', 
+      second: '2-digit' 
+    });
+  };
+
+  const getConfidenceColor = (confidence?: number) => {
+    if (!confidence) return 'text-muted-foreground';
+    if (confidence > 0.8) return 'text-green-400';
+    if (confidence > 0.6) return 'text-yellow-400';
+    return 'text-red-400';
+  };
+
   return (
     <Card className="shadow-elegant min-h-96">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Live Transkribering</CardTitle>
+          <CardTitle className="text-xl">TV-Caption Transkribering</CardTitle>
           <div className="flex items-center space-x-2">
             {isActive ? (
               <>
                 <Volume2 className="w-4 h-4 text-success" />
-                <Badge variant="default" className="bg-success">
-                  Aktiv
+                <Badge variant="default" className="bg-success animate-pulse">
+                  LIVE
                 </Badge>
               </>
             ) : (
@@ -69,109 +94,92 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
         {/* Info om hybrid-funktion */}
         <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-2">
           <div className="flex items-center space-x-1">
-            <Zap className="w-3 h-3" />
-            <span>Snabb (lokal)</span>
+            <Zap className="w-3 h-3 text-blue-400" />
+            <span>Snabb (Speech API)</span>
           </div>
           <div className="flex items-center space-x-1">
-            <Globe className="w-3 h-3" />
+            <Globe className="w-3 h-3 text-green-400" />
             <span>Exakt (Berget AI)</span>
           </div>
         </div>
       </CardHeader>
 
       <CardContent>
-        <ScrollArea className="h-80">
-          <div className="space-y-4">
-            {segments.length === 0 ? (
-              <div className="text-center text-muted-foreground py-12">
-                {isActive ? (
-                  <div className="space-y-2">
-                    <Loader2 className="w-8 h-8 mx-auto animate-spin" />
-                    <p>Lyssnar efter tal...</p>
-                    <p className="text-xs">Pratar du svenska? Säg något!</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p>Starta inspelning för live transkribering</p>
-                    <p className="text-xs">Använder både lokal taligenkänning och Berget AI</p>
-                  </div>
-                )}
+        {/* TV-Caption container */}
+        <div className="bg-black/95 backdrop-blur rounded-lg p-6 min-h-[160px] relative border border-gray-600">
+          {!isActive && segments.length === 0 ? (
+            <div className="text-center text-white/70 py-8">
+              <p className="text-lg">Starta inspelning för TV-caption transkribering</p>
+              <p className="text-sm mt-2">Visar senaste 2 rader som på TV</p>
+            </div>
+          ) : isActive && segments.length === 0 ? (
+            <div className="text-center text-white/70 py-8">
+              <div className="space-y-2">
+                <Loader2 className="w-6 h-6 mx-auto animate-spin" />
+                <p className="text-lg">Lyssnar efter tal...</p>
+                <p className="text-sm">Pratar du svenska? Säg något!</p>
               </div>
-            ) : (
-              segments.map((segment) => (
-                <div
-                  key={segment.id}
-                  className={`p-4 rounded-lg border transition-all duration-500 ${
-                    segment.isLocal 
-                      ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800' 
-                      : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800'
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs ${
-                          segment.isLocal 
-                            ? 'border-blue-300 text-blue-700 dark:border-blue-700 dark:text-blue-300' 
-                            : 'border-green-300 text-green-700 dark:border-green-700 dark:text-green-300'
-                        }`}
-                      >
-                        {segment.timestamp.toLocaleTimeString('sv-SE')}
-                      </Badge>
-                      
-                      <Badge 
-                        variant={segment.isLocal ? "secondary" : "default"}
-                        className="text-xs"
-                      >
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {displaySegments.map((segment, index) => (
+                <div key={segment?.id || `empty-${index}`} className="min-h-[32px] flex items-center">
+                  {segment ? (
+                    <div className="flex items-center gap-3 w-full">
+                      {/* Status ikon */}
+                      <div className="flex-shrink-0">
                         {segment.isLocal ? (
-                          <>
-                            <Zap className="w-3 h-3 mr-1" />
-                            Snabb
-                          </>
+                          <Zap className="w-4 h-4 text-blue-400" />
                         ) : (
-                          <>
-                            <Globe className="w-3 h-3 mr-1" />
-                            Exakt
-                          </>
+                          <Globe className="w-4 h-4 text-green-400" />
                         )}
-                      </Badge>
+                      </div>
+                      
+                      {/* Text - TV-caption stil */}
+                      <div className="flex-1">
+                        <p className={`text-lg font-semibold leading-tight transition-all duration-300 ${
+                          index === displaySegments.length - 1 
+                            ? 'text-white' 
+                            : 'text-white/80'
+                        } ${segment.text.endsWith('...') ? 'animate-pulse' : ''}`}>
+                          {segment.text}
+                        </p>
+                      </div>
+                      
+                      {/* Metadata */}
+                      <div className="flex-shrink-0 text-right">
+                        <div className="text-xs text-white/60">
+                          {formatTimestamp(segment.timestamp)}
+                        </div>
+                        {segment.confidence && (
+                          <div className={`text-xs font-mono mt-1 ${getConfidenceColor(segment.confidence)}`}>
+                            {Math.round(segment.confidence * 100)}%
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-                    {segment.confidence && (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs ${
-                          segment.confidence > 0.8 
-                            ? 'text-green-600' 
-                            : segment.confidence > 0.6 
-                            ? 'text-yellow-600' 
-                            : 'text-red-600'
-                        }`}
-                      >
-                        {Math.round(segment.confidence * 100)}%
-                      </Badge>
-                    )}
-                  </div>
-                  
-                  <p className={`text-lg leading-relaxed ${
-                    segment.text.endsWith('...') 
-                      ? 'text-muted-foreground animate-pulse' 
-                      : 'text-foreground'
-                  }`}>
-                    {segment.text}
-                  </p>
-                  
-                  {segment.isLocal && !segment.text.endsWith('...') && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">
-                      ↻ Förbättras med Berget AI...
-                    </p>
+                  ) : (
+                    // Tom rad för spacing
+                    <div className="w-full h-8"></div>
                   )}
                 </div>
-              ))
-            )}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Status info */}
+        <div className="mt-4 text-sm text-muted-foreground">
+          <div className="flex items-center justify-between">
+            <span>
+              Totalt {segments.length} segment{segments.length !== 1 ? '' : ''} • 
+              Visar senaste 2 rader
+            </span>
+            <span className="text-xs">
+              TV-Caption stil
+            </span>
           </div>
-        </ScrollArea>
+        </div>
       </CardContent>
     </Card>
   );
