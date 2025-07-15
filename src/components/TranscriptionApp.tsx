@@ -385,30 +385,38 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const selectedTemplateData = PROTOCOL_TEMPLATES.find(t => t.id === selectedTemplate);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 p-4 md:p-6">
+      <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Möteskollen</h1>
-            <p className="text-muted-foreground">Powered by Berget AI</p>
+          <div className="space-y-1">
+            <h1 className="text-4xl font-semibold tracking-tight text-foreground">Möteskollen</h1>
+            <p className="text-muted-foreground font-medium">Powered by Berget AI</p>
           </div>
-          <div className="flex space-x-2">
-            <Button variant="ghost" onClick={onLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logga ut
-            </Button>
-          </div>
+          <Button 
+            variant="ghost" 
+            onClick={onLogout}
+            className="rounded-2xl px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-4 h-4 mr-2" />
+            Logga ut
+          </Button>
         </div>
 
         {/* Säkerhetsinformation */}
-        <Alert>
-          <Shield className="h-4 w-4" />
-          <AlertDescription>
-            <strong>Säker och GDPR-kompatibel</strong> - All bearbetning sker inom Sverige. 
-            Ingen data lämnar EU.
-          </AlertDescription>
-        </Alert>
+        <div className="apple-card p-4 bg-gradient-to-r from-muted/30 to-muted/20 border border-border/30">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 rounded-full bg-primary/10">
+              <Shield className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p className="font-medium text-foreground">Säker och GDPR-kompatibel</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                All bearbetning sker inom Sverige. Ingen data lämnar EU.
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Protokoll visning eller tabs */}
         {processingStep === 'completed' && summary ? (
@@ -484,29 +492,38 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
           </div>
         ) : (
           <Tabs defaultValue="transcription" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="transcription">
+            <TabsList className="grid w-full grid-cols-3 apple-card bg-muted/40 p-2 h-auto">
+              <TabsTrigger 
+                value="transcription" 
+                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
                 <Mic className="w-4 h-4 mr-2" />
                 Live
               </TabsTrigger>
-              <TabsTrigger value="protocol">
+              <TabsTrigger 
+                value="protocol" 
+                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
                 <FileText className="w-4 h-4 mr-2" />
                 Protokoll & Mallar
               </TabsTrigger>
-              <TabsTrigger value="meetings">
+              <TabsTrigger 
+                value="meetings" 
+                className="rounded-xl px-6 py-3 font-medium transition-all data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
                 <Calendar className="w-4 h-4 mr-2" />
                 Mina Möten
               </TabsTrigger>
             </TabsList>
 
           {/* Transkribering Tab */}
-          <TabsContent value="transcription" className="space-y-6">
+          <TabsContent value="transcription" className="space-y-8 mt-8">
             {/* Inspelningskontroller */}
-            <Card className="shadow-elegant">
-              <CardHeader className="text-center">
-                <CardTitle>Spela in ditt möte</CardTitle>
+            <Card className="apple-card border-0">
+              <CardHeader className="text-center pb-6">
+                <CardTitle className="text-2xl font-semibold tracking-tight">Spela in ditt möte</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-8 px-6 pb-8">
                 <div className="flex justify-center">
                   <RecordingButton
                     isRecording={isRecording}
@@ -524,10 +541,10 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                 <div className="text-center">
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
+                      <span className="w-full border-t border-border/40" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
+                      <span className="bg-background px-4 text-muted-foreground font-medium tracking-wide">
                         eller
                       </span>
                     </div>
@@ -546,9 +563,9 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
                     <Button 
                       variant="outline" 
                       disabled={isRecording || processingStep === 'transcribing' || processingStep === 'summarizing'}
-                      className="w-full"
+                      className="apple-button bg-muted/30 border-border/40 hover:bg-muted/50 text-foreground font-medium"
                     >
-                      <Upload className="w-4 h-4 mr-2" />
+                      <Upload className="w-4 h-4 mr-3" />
                       Ladda upp ljudfil
                     </Button>
                   </div>
