@@ -4,17 +4,23 @@ import { Button } from '@/components/ui/button';
 
 interface RecordingButtonProps {
   isRecording: boolean;
+  isPaused: boolean;
   audioLevel: number;
   onStartRecording: () => void;
   onStopRecording: () => void;
+  onPauseRecording: () => void;
+  onResumeRecording: () => void;
   disabled?: boolean;
 }
 
 export const RecordingButton: React.FC<RecordingButtonProps> = ({
   isRecording,
+  isPaused,
   audioLevel,
   onStartRecording,
   onStopRecording,
+  onPauseRecording,
+  onResumeRecording,
   disabled = false
 }) => {
   const buttonSize = 120;
@@ -36,13 +42,19 @@ export const RecordingButton: React.FC<RecordingButtonProps> = ({
         
         {/* Huvudknapp */}
         <Button
-          onClick={isRecording ? onStopRecording : onStartRecording}
+          onClick={
+            isRecording 
+              ? (isPaused ? onResumeRecording : onPauseRecording)
+              : onStartRecording
+          }
           disabled={disabled}
           size="lg"
           className={`
             relative z-10 rounded-full transition-all duration-300
-            ${isRecording 
-              ? 'bg-recording hover:bg-recording-pulse shadow-recording' 
+            ${isRecording && !isPaused
+              ? 'bg-warning hover:bg-warning/90 shadow-recording' 
+              : isRecording && isPaused
+              ? 'bg-success hover:bg-success/90'
               : 'bg-primary hover:bg-primary-dark shadow-elegant'
             }
           `}
@@ -53,11 +65,28 @@ export const RecordingButton: React.FC<RecordingButtonProps> = ({
           }}
         >
           {isRecording ? (
-            <Square className="w-8 h-8" fill="currentColor" />
+            isPaused ? (
+              <Mic className="w-8 h-8" />
+            ) : (
+              "⏸️"
+            )
           ) : (
             <Mic className="w-8 h-8" />
           )}
         </Button>
+
+        {/* Stopp-knapp (synlig under inspelning) */}
+        {isRecording && (
+          <Button
+            onClick={onStopRecording}
+            variant="outline"
+            size="sm"
+            className="absolute -bottom-14 left-1/2 transform -translate-x-1/2 bg-background"
+          >
+            <Square className="w-4 h-4 mr-2" fill="currentColor" />
+            Stoppa
+          </Button>
+        )}
 
         {/* Volymvisualisering */}
         {isRecording && (
@@ -79,23 +108,26 @@ export const RecordingButton: React.FC<RecordingButtonProps> = ({
       </div>
 
       {/* Status text */}
-      <div className="text-center">
+      <div className="text-center mt-4">
         {isRecording ? (
           <div className="space-y-1">
             <p className="text-lg font-medium text-recording">
-              🔴 Spelar in...
+              🔴 {isPaused ? 'Pausad' : 'Live transkribering aktiv'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Tryck för att stoppa eller vänta på tystnad
+              {isPaused 
+                ? 'Tryck för att återuppta' 
+                : 'Tryck för att pausa eller stoppa längst ner'
+              }
             </p>
           </div>
         ) : (
           <div className="space-y-1">
             <p className="text-lg font-medium">
-              Tryck för att börja spela in
+              Starta live transkribering
             </p>
             <p className="text-sm text-muted-foreground">
-              Inspelningen stoppas automatiskt vid tystnad
+              Får automatisk syntolkning var 8:e sekund
             </p>
           </div>
         )}

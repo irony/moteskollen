@@ -18,6 +18,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
 import { RecordingButton } from './RecordingButton';
+import { LiveTranscription } from './LiveTranscription';
 import { bergetApi } from '@/services/bergetApi';
 
 interface TranscriptionAppProps {
@@ -33,6 +34,11 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
 }) => {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [transcription, setTranscription] = useState('');
+  const [liveTranscriptionSegments, setLiveTranscriptionSegments] = useState<Array<{
+    text: string;
+    timestamp: Date;
+    isProcessing?: boolean;
+  }>>([]);
   const [summary, setSummary] = useState('');
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [actionItems, setActionItems] = useState<string[]>([]);
@@ -40,18 +46,57 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const { toast } = useToast();
+
+  // Hantera ljudchunks för live transkribering
+  const handleAudioChunk = useCallback(async (chunk: Blob) => {
+    try {
+      // Lägg till processing-segment
+      const processingSegment = {
+        text: '',
+        timestamp: new Date(),
+        isProcessing: true
+      };
+      
+      setLiveTranscriptionSegments(prev => [...prev, processingSegment]);
+
+      // Transkribera chunk
+      const result = await bergetApi.transcribeAudio(chunk);
+      
+      // Uppdatera segment med resultat
+      setLiveTranscriptionSegments(prev => 
+        prev.map((seg, idx) => 
+          idx === prev.length - 1 
+            ? { ...seg, text: result.text, isProcessing: false }
+            : seg
+        )
+      );
+
+      // Lägg till i fullständig transkribering
+      setTranscription(prev => prev + ' ' + result.text);
+
+    } catch (err: any) {
+      console.error('Live transcription error:', err);
+      // Ta bort det misslyckade segmentet
+      setLiveTranscriptionSegments(prev => prev.slice(0, -1));
+    }
+  }, []);
+
   const { 
     isRecording, 
+    isPaused,
     audioLevel, 
     startRecording, 
     stopRecording, 
+    pauseRecording,
+    resumeRecording,
     error: recordingError 
-  } = useAudioRecorder();
+  } = useAudioRecorder(handleAudioChunk, 8000); // 8 sekunder chunks
 
   const handleStartRecording = useCallback(async () => {
     setError(null);
     setProcessingStep('idle');
     setTranscription('');
+    setLiveTranscriptionSegments([]);
     setSummary('');
     setKeyPoints([]);
     setActionItems([]);
@@ -59,24 +104,20 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
   }, [startRecording]);
 
   const handleStopRecording = useCallback(async () => {
-    const audioBlob = await stopRecording();
-    if (audioBlob) {
-      await processAudio(audioBlob);
+    await stopRecording();
+    
+    // Om vi har transkribering, skapa protokoll
+    if (transcription.trim()) {
+      await processTranscription(transcription);
     }
-  }, [stopRecording]);
+  }, [stopRecording, transcription]);
 
-  const processAudio = async (audioBlob: Blob) => {
+  const processTranscription = async (text: string) => {
     try {
-      setProcessingStep('transcribing');
-      
-      // Transkribera ljudet
-      const transcriptionResult = await bergetApi.transcribeAudio(audioBlob);
-      setTranscription(transcriptionResult.text);
-
       setProcessingStep('summarizing');
 
-      // Skapa protokoll
-      const summaryResult = await bergetApi.summarizeToProtocol(transcriptionResult.text);
+      // Skapa protokoll från den fullständiga transkriberingen
+      const summaryResult = await bergetApi.summarizeToProtocol(text);
       setSummary(summaryResult.summary);
       setKeyPoints(summaryResult.key_points);
       setActionItems(summaryResult.action_items || []);
@@ -123,6 +164,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
     // Återställ formuläret
     setProcessingStep('idle');
     setTranscription('');
+    setLiveTranscriptionSegments([]);
     setSummary('');
     setKeyPoints([]);
     setActionItems([]);
@@ -187,10 +229,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             <div className="flex justify-center">
               <RecordingButton
                 isRecording={isRecording}
+                isPaused={isPaused}
                 audioLevel={audioLevel}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
-                disabled={processingStep !== 'idle' && processingStep !== 'completed'}
+                onPauseRecording={pauseRecording}
+                onResumeRecording={resumeRecording}
+                disabled={processingStep === 'summarizing'}
               />
             </div>
 
@@ -222,6 +267,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
             )}
           </CardContent>
         </Card>
+
+        {/* Live Transkribering */}
+        <LiveTranscription 
+          transcriptionSegments={liveTranscriptionSegments}
+          audioLevel={audioLevel}
+          isActive={isRecording && !isPaused}
+        />
 
         {/* Resultat */}
         {processingStep === 'completed' && (

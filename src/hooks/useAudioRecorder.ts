@@ -4,12 +4,19 @@ interface UseAudioRecorderResult {
   isRecording: boolean;
   audioLevel: number;
   startRecording: () => Promise<void>;
-  stopRecording: () => Promise<Blob | null>;
+  stopRecording: () => Promise<void>;
+  pauseRecording: () => void;
+  resumeRecording: () => void;
+  isPaused: boolean;
   error: string | null;
 }
 
-export const useAudioRecorder = (): UseAudioRecorderResult => {
+export const useAudioRecorder = (
+  onAudioChunk?: (chunk: Blob) => void,
+  chunkInterval: number = 8000 // 8 sekunder
+): UseAudioRecorderResult => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
@@ -17,19 +24,25 @@ export const useAudioRecorder = (): UseAudioRecorderResult => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const chunkTimerRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      setIsPaused(false);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true
+          autoGainControl: true,
+          sampleRate: 16000
         } 
       });
+
+      streamRef.current = stream;
 
       // Sätt upp ljudanalys för volymvisualisering
       audioContextRef.current = new AudioContext();
@@ -46,8 +59,23 @@ export const useAudioRecorder = (): UseAudioRecorderResult => {
       chunksRef.current = [];
 
       mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data.size > 0 && !isPaused) {
           chunksRef.current.push(event.data);
+        }
+      };
+
+      // Hantera när chunk är klar (för auto-skickning)
+      mediaRecorderRef.current.onstop = () => {
+        if (chunksRef.current.length > 0 && onAudioChunk && !isPaused) {
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          onAudioChunk(blob);
+          chunksRef.current = []; // Återställ för nästa chunk
+          
+          // Starta om inspelning om den fortfarande ska pågå
+          if (isRecording && mediaRecorderRef.current && streamRef.current) {
+            mediaRecorderRef.current.start();
+            startChunkTimer();
+          }
         }
       };
 
@@ -56,48 +84,82 @@ export const useAudioRecorder = (): UseAudioRecorderResult => {
 
       // Starta volymmonitoring
       monitorAudioLevel();
+      
+      // Starta timer för chunks
+      startChunkTimer();
 
     } catch (err) {
       setError('Kunde inte komma åt mikrofonen. Kontrollera behörigheter.');
       console.error('Recording error:', err);
     }
+  }, [isRecording, isPaused, onAudioChunk, chunkInterval]);
+
+  const stopRecording = useCallback(async (): Promise<void> => {
+    setIsRecording(false);
+    setIsPaused(false);
+
+    // Stoppa chunk timer
+    if (chunkTimerRef.current) {
+      clearTimeout(chunkTimerRef.current);
+      chunkTimerRef.current = null;
+    }
+
+    // Stoppa MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Stoppa alla spår
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+
+    // Rensa resurser
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    setAudioLevel(0);
   }, []);
 
-  const stopRecording = useCallback(async (): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      if (!mediaRecorderRef.current || !isRecording) {
-        resolve(null);
-        return;
-      }
-
-      mediaRecorderRef.current.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        chunksRef.current = [];
-        
-        // Rensa resurser
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-        }
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-        }
-
-        setIsRecording(false);
-        setAudioLevel(0);
-        resolve(blob);
-      };
-
-      mediaRecorderRef.current.stop();
+  const pauseRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
       
-      // Stoppa alla spår
-      if (mediaRecorderRef.current.stream) {
-        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      // Stoppa chunk timer
+      if (chunkTimerRef.current) {
+        clearTimeout(chunkTimerRef.current);
+        chunkTimerRef.current = null;
       }
-    });
-  }, [isRecording]);
+    }
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+      
+      // Återstarta chunk timer
+      startChunkTimer();
+    }
+  }, []);
+
+  const startChunkTimer = useCallback(() => {
+    if (chunkTimerRef.current) {
+      clearTimeout(chunkTimerRef.current);
+    }
+    
+    chunkTimerRef.current = setTimeout(() => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording' && !isPaused) {
+        mediaRecorderRef.current.stop();
+      }
+    }, chunkInterval);
+  }, [chunkInterval, isPaused]);
 
   const monitorAudioLevel = useCallback(() => {
     if (!analyserRef.current) return;
@@ -105,7 +167,7 @@ export const useAudioRecorder = (): UseAudioRecorderResult => {
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     
     const updateLevel = () => {
-      if (!analyserRef.current || !isRecording) return;
+      if (!analyserRef.current || !isRecording || isPaused) return;
 
       analyserRef.current.getByteFrequencyData(dataArray);
       
@@ -115,33 +177,20 @@ export const useAudioRecorder = (): UseAudioRecorderResult => {
       
       setAudioLevel(normalizedLevel);
 
-      // Detektera tystnad (låg volym under 3 sekunder)
-      if (normalizedLevel < 0.01) {
-        if (!silenceTimerRef.current) {
-          silenceTimerRef.current = setTimeout(() => {
-            // Auto-stopp efter 3 sekunder tystnad
-            stopRecording();
-          }, 3000);
-        }
-      } else {
-        // Återställ tystnadstimer om ljud detekteras
-        if (silenceTimerRef.current) {
-          clearTimeout(silenceTimerRef.current);
-          silenceTimerRef.current = null;
-        }
-      }
-
       animationFrameRef.current = requestAnimationFrame(updateLevel);
     };
 
     updateLevel();
-  }, [isRecording, stopRecording]);
+  }, [isRecording, isPaused]);
 
   return {
     isRecording,
+    isPaused,
     audioLevel,
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
     error
   };
 };
