@@ -222,7 +222,7 @@ class BergetApiService {
     return result.choices[0].message.content.trim();
   }
 
-  // Chatta med AI om möten
+  // Chatta med AI om möten med tool support
   async chatWithMeetings(message: string, meetingContext?: string): Promise<string> {
     if (!this.apiKey) {
       throw new Error('API-nyckel saknas');
@@ -231,12 +231,62 @@ class BergetApiService {
     const systemPrompt = meetingContext 
       ? `Du är en AI-assistent som hjälper med att analysera och diskutera möten. Du har tillgång till följande möteskontext: "${meetingContext}". Svara på svenska och ge hjälpsamma och relevanta svar baserat på mötesinnehållet.
 
-När användaren ber dig skapa eller uppdatera ett protokoll, skapa ett strukturerat mötesprotokoll baserat på mötesinnehållet. Använd markdown-formatering och inkludera datum, deltagare, viktiga beslut och handlingspoäng.
-
-När användaren frågar om andra möten, förklara att du för närvarande bara kan analysera det aktuella mötet men att funktionen för att söka i andra möten kommer snart.`
+När användaren ber dig skapa ett protokoll, använd create_protocol verktyget.
+När användaren frågar om andra möten, använd get_meeting_content verktyget för att hämta information.`
       : `Du är en AI-assistent som hjälper med mötesanalys och protokollhantering. Du kan svara på frågor om möten generellt, ge råd om bästa praxis för mötesstrukturer, protokollskrivning och uppföljning. Svara alltid på svenska.
 
-När användaren ber dig skapa ett protokoll, be dem först att dela mötesinnehållet så att du kan skapa ett strukturerat protokoll.`;
+När användaren ber dig skapa ett protokoll, använd create_protocol verktyget.
+När användaren frågar om andra möten, använd get_meeting_content verktyget för att hämta information.`;
+
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "create_protocol",
+          description: "Skapa ett mötesprotokoll baserat på mötesinnehåll",
+          parameters: {
+            type: "object",
+            properties: {
+              meeting_content: {
+                type: "string",
+                description: "Mötesinnehållet som ska omvandlas till protokoll"
+              },
+              title: {
+                type: "string",
+                description: "Titel för protokollet"
+              },
+              participants: {
+                type: "array",
+                items: { type: "string" },
+                description: "Lista på deltagare"
+              }
+            },
+            required: ["meeting_content", "title"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "get_meeting_content",
+          description: "Hämta innehåll från andra möten",
+          parameters: {
+            type: "object",
+            properties: {
+              meeting_id: {
+                type: "string",
+                description: "ID för mötet som ska hämtas"
+              },
+              search_query: {
+                type: "string",
+                description: "Sökfråga för att hitta specifikt innehåll"
+              }
+            },
+            required: ["search_query"]
+          }
+        }
+      }
+    ];
 
     const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -245,6 +295,7 @@ När användaren ber dig skapa ett protokoll, be dem först att dela mötesinneh
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        model: "mistralai/Magistral-Small-2506",
         messages: [
           {
             role: 'system',
@@ -255,6 +306,8 @@ När användaren ber dig skapa ett protokoll, be dem först att dela mötesinneh
             content: message
           }
         ],
+        tools: tools,
+        tool_choice: "auto",
         temperature: 0.7,
         max_tokens: 1000
       })
@@ -265,7 +318,44 @@ När användaren ber dig skapa ett protokoll, be dem först att dela mötesinneh
     }
 
     const result = await response.json();
-    return result.choices[0].message.content?.trim() || '';
+    const choice = result.choices[0];
+    
+    // Hantera tool calls
+    if (choice.message.tool_calls) {
+      let finalResponse = choice.message.content || '';
+      
+      for (const toolCall of choice.message.tool_calls) {
+        const toolResult = await this.handleToolCall(toolCall, meetingContext);
+        finalResponse += `\n\n${toolResult}`;
+      }
+      
+      return finalResponse;
+    }
+
+    return choice.message.content?.trim() || '';
+  }
+
+  // Hantera tool calls
+  private async handleToolCall(toolCall: any, meetingContext?: string): Promise<string> {
+    const { name, arguments: args } = toolCall.function;
+    
+    switch (name) {
+      case 'create_protocol':
+        const parsedArgs = JSON.parse(args);
+        const protocol = await this.summarizeToProtocol(
+          parsedArgs.meeting_content || meetingContext || '',
+          `Skapa ett professionellt mötesprotokoll med titeln "${parsedArgs.title}" och deltagarna: ${parsedArgs.participants?.join(', ') || 'Okänt'}`
+        );
+        return `**Protokoll skapat:**\n\n${protocol.summary}`;
+        
+      case 'get_meeting_content':
+        const searchArgs = JSON.parse(args);
+        // Här skulle vi normalt hämta från en databas, men för nu returnerar vi mock data
+        return `**Mötesinnehåll hittat:**\n\nTyvärr kan jag inte hämta andra möten ännu - denna funktionalitet kommer att implementeras när vi har en databas för att lagra möten.`;
+        
+      default:
+        return `Okänt verktyg: ${name}`;
+    }
   }
 
   // Analysera pågående möte för att identifiera typ och deltagare
