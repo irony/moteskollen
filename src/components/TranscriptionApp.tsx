@@ -314,7 +314,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Protokoll Klippare</h1>
+            <h1 className="text-3xl font-bold">Möteskollen</h1>
             <p className="text-muted-foreground">Powered by Berget AI</p>
           </div>
           <div className="flex space-x-2">

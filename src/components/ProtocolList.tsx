@@ -65,7 +65,7 @@ ${protocol.actionItems.map(item => `- ${item}`).join('\n')}
 ` : ''}## FULLSTÄNDIG TRANSKRIBERING
 ${protocol.originalTranscription}
 ---
-*Genererat av Protokoll Klippare - Powered by Berget AI*`;
+*Genererat av M - Powered by Berget AI*`;
 
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
