@@ -266,7 +266,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
               <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-foreground">Mina Möten</h1>
+                    <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-foreground">Möteskollen</h1>
                     <p className="text-xs md:text-sm text-muted-foreground font-medium">
                       {meetings.length} möten sparade
                     </p>
