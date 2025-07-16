@@ -22,6 +22,7 @@ import {
   LogOut,
   Shield,
   Mic,
+  Square,
   Users,
   Phone,
   GraduationCap,
@@ -504,23 +505,8 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
             </div>
           </header>
 
-          <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
-            {/* Säkerhetsinformation */}
-            <div className="apple-card p-4 bg-gradient-to-r from-muted/30 to-muted/20 border border-border/30">
-              <div className="flex items-start space-x-3">
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Shield className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Säker och GDPR-kompatibel</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    All bearbetning sker inom Sverige. Ingen data lämnar EU.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Live transkribering */}
+          {/* Live transkribering med central caption och timeline */}
+          <div className="relative">
             <HybridTranscription 
               segments={segments}
               audioLevel={audioLevel}
@@ -531,41 +517,68 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
             {/* Error display */}
             {(error || hybridError) && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  {error || hybridError}
-                </AlertDescription>
-              </Alert>
+              <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {error || hybridError}
+                  </AlertDescription>
+                </Alert>
+              </div>
             )}
 
             {/* Processing display */}
             {processingStep !== 'idle' && processingStep !== 'completed' && (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{getStatusMessage()}</span>
-                  <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
+              <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-full mx-4">
+                <div className="bg-background/95 backdrop-blur-md border border-border/30 rounded-lg p-4 shadow-lg">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{getStatusMessage()}</span>
+                      <span className="text-sm text-muted-foreground">{getProgressValue()}%</span>
+                    </div>
+                    <Progress value={getProgressValue()} className="h-2" />
+                  </div>
                 </div>
-                <Progress value={getProgressValue()} className="h-2" />
               </div>
             )}
-
-            {/* Ingen chat-sektion här längre - nu tillgänglig via Cmd+K */}
           </div>
 
-          {/* Apple-style Footer med inspelningsknapp */}
-          <FooterWithRecording
-            isRecording={isRecording}
-            isPaused={false}
-            audioLevel={audioLevel}
-            onStartRecording={handleStartRecording}
-            onStopRecording={handleStopRecording}
-            onPauseRecording={() => {}}
-            onResumeRecording={() => {}}
-            onShowHistory={handleShowHistory}
-            onFileUpload={handleFileUpload}
-            disabled={isProcessingFile}
-          />
+          {/* Bottom navigation bar */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border/30">
+            <div className="max-w-4xl mx-auto px-4 py-3">
+              <div className="flex items-center justify-between">
+                {/* Recording button on the left */}
+                <Button
+                  onClick={isRecording ? handleStopRecording : handleStartRecording}
+                  variant={isRecording ? "destructive" : "default"}
+                  size="lg"
+                  className={`rounded-full transition-all duration-300 ${
+                    isRecording 
+                      ? 'bg-destructive hover:bg-destructive/90 animate-pulse' 
+                      : 'neu-button'
+                  }`}
+                >
+                  {isRecording ? (
+                    <Square className="w-6 h-6" fill="currentColor" />
+                  ) : (
+                    <Mic className="w-6 h-6" />
+                  )}
+                </Button>
+
+                {/* Right side actions */}
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleShowHistory}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    Historik
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         </main>
       </div>
 

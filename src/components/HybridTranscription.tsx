@@ -53,11 +53,11 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
   };
 
   return (
-    <div className="space-y-4">
-      {/* Fast TV-Caption overlay */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 p-4">
-        <div className="bg-black/90 backdrop-blur-lg rounded-t-lg border border-gray-600/50 shadow-2xl">
-          <div className="px-6 py-4 min-h-[120px] flex flex-col justify-end">
+    <div className="relative h-full">
+      {/* Central caption overlay */}
+      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl px-4">
+        <div className="bg-black/90 backdrop-blur-lg rounded-lg border border-gray-600/50 shadow-2xl">
+          <div className="px-6 py-4 min-h-[120px] flex flex-col justify-center">
             {!isActive && segments.length === 0 ? (
               <div className="text-center text-white/60 py-4">
                 <button 
@@ -126,26 +126,85 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
         </div>
       </div>
 
-      {/* Huvudkort med kontroller */}
-      <Card className="shadow-elegant mb-32">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl">Transkribering</CardTitle>
-            <div className="flex items-center space-x-2">
-              {isActive ? (
-                <Badge variant="default" className="bg-success">
-                  Aktiv
-                </Badge>
+      {/* Timeline protocol view */}
+      <div className="min-h-screen pt-8 pb-32">
+        <div className="max-w-4xl mx-auto px-4">
+          <ScrollArea className="h-[calc(100vh-8rem)]">
+            <div className="space-y-6">
+              {segments.length === 0 ? (
+                <div className="text-center text-muted-foreground py-24">
+                  <div className="space-y-4">
+                    <div className="w-16 h-16 mx-auto rounded-full bg-muted/50 flex items-center justify-center">
+                      <Volume2 className="w-8 h-8" />
+                    </div>
+                    <h3 className="text-lg font-medium">Protokollet kommer att visas här</h3>
+                    <p className="text-sm">När du startar inspelning kommer alla uttalanden att visas i en tidslinje</p>
+                  </div>
+                </div>
               ) : (
-                <Badge variant="outline">
-                  Inaktiv
-                </Badge>
+                segments.map((segment, index) => (
+                  <div key={segment.id} className="flex gap-6 group">
+                    {/* Timestamp */}
+                    <div className="flex-shrink-0 w-20 pt-1">
+                      <div className="text-xs text-muted-foreground font-mono text-right">
+                        {formatTimestamp(segment.timestamp)}
+                      </div>
+                    </div>
+                    
+                    {/* Timeline line */}
+                    <div className="flex-shrink-0 flex flex-col items-center pt-1">
+                      <div className={`w-3 h-3 rounded-full transition-colors ${
+                        segment.isLocal ? 'bg-blue-500' : 'bg-green-500'
+                      }`} />
+                      {index < segments.length - 1 && (
+                        <div className="w-px h-8 bg-border mt-2" />
+                      )}
+                    </div>
+                    
+                    {/* Speech bubble */}
+                    <div className="flex-1 min-w-0">
+                      <div className={`relative p-4 rounded-lg transition-all duration-300 ${
+                        segment.text.endsWith('...') ? 'animate-pulse' : ''
+                      } ${segment.isLocal ? 'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800/30' : 'bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800/30'} border`}>
+                        {/* Arrow pointing to timeline */}
+                        <div className={`absolute left-0 top-4 w-0 h-0 border-t-[6px] border-b-[6px] border-r-[8px] border-transparent ${
+                          segment.isLocal ? 'border-r-blue-50 dark:border-r-blue-950/30' : 'border-r-green-50 dark:border-r-green-950/30'
+                        } -translate-x-2`} />
+                        
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Badge variant="outline" className={`text-xs ${
+                              segment.isLocal ? 'text-blue-600 dark:text-blue-400' : 'text-green-600 dark:text-green-400'
+                            }`}>
+                              {segment.isLocal ? 'Lokal AI' : 'Berget AI'}
+                              {segment.confidence && (
+                                <span className="ml-1">
+                                  {Math.round(segment.confidence * 100)}%
+                                </span>
+                              )}
+                            </Badge>
+                          </div>
+                          
+                          <p className="text-sm leading-relaxed text-foreground">
+                            {segment.text || 'Bearbetar ljud...'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
-          </div>
-          
-          {isActive && (
-            <div className="flex items-center space-x-2 mt-2">
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Audio level indicator when recording */}
+      {isActive && (
+        <div className="fixed bottom-8 right-8 z-40">
+          <div className="bg-background/90 backdrop-blur-md rounded-lg border border-border/30 p-3 shadow-lg">
+            <div className="flex items-center space-x-2">
+              <Volume2 className="w-4 h-4 text-success" />
               <div className="flex space-x-1">
                 {[...Array(10)].map((_, i) => (
                   <div
@@ -159,9 +218,9 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
                 ))}
               </div>
             </div>
-          )}
-        </CardHeader>
-      </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

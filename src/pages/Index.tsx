@@ -86,17 +86,15 @@ const Index = () => {
     case 'history':
       return (
         <>
-          {showFloatingSelector && (
-            <FloatingViewSelector 
-              currentView={currentView}
-              onViewChange={handleViewChange}
-            />
-          )}
+          <FloatingViewSelector 
+            currentView={currentView}
+            onViewChange={handleViewChange}
+            className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
+          />
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
             onStartRecording={() => handleViewChange('live')}
-            className="pt-20" // Add top padding for floating selector
           />
         </>
       );
@@ -104,15 +102,13 @@ const Index = () => {
     case 'live':
       return (
         <>
-          {showFloatingSelector && (
-            <FloatingViewSelector 
-              currentView={currentView}
-              onViewChange={handleViewChange}
-            />
-          )}
+          <FloatingViewSelector 
+            currentView={currentView}
+            onViewChange={handleViewChange}
+            className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
+          />
           <TranscriptionApp 
             onLogout={handleLogout}
-            className="pt-20" // Add top padding for floating selector
           />
         </>
       );
@@ -129,17 +125,15 @@ const Index = () => {
     default:
       return (
         <>
-          {showFloatingSelector && (
-            <FloatingViewSelector 
-              currentView={currentView}
-              onViewChange={handleViewChange}
-            />
-          )}
+          <FloatingViewSelector 
+            currentView={currentView}
+            onViewChange={handleViewChange}
+            className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
+          />
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
             onStartRecording={() => handleViewChange('live')}
-            className="pt-20"
           />
         </>
       );
