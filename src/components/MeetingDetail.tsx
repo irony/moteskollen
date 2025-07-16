@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { ToastAction } from '@/components/ui/toast';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -113,7 +114,12 @@ export const MeetingDetail: React.FC<MeetingDetailProps> = ({
       
       toast({
         title: "Protokoll genererat",
-        description: "Ett nytt protokoll har skapats baserat på transkriberingen."
+        description: "Ett nytt protokoll har skapats baserat på transkriberingen.",
+        action: (
+          <ToastAction altText="Visa protokoll">
+            Visa
+          </ToastAction>
+        )
       });
     } catch (error: any) {
       toast({

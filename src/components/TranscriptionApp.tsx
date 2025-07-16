@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ToastAction } from '@/components/ui/toast';
 import ReactMarkdown from 'react-markdown';
 import { 
   Loader2, 
@@ -317,9 +318,25 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
       }
 
       setProcessingStep('completed');
+      
+      const completedMeeting = meetings.find(m => m.id === currentMeetingId);
+      
       toast({
         title: "Protokoll skapat! 🎉",
         description: "Din inspelning har bearbetats och ett protokoll är klart.",
+        action: completedMeeting ? (
+          <ToastAction 
+            altText="Visa protokoll"
+            onClick={() => {
+              setIsHistoryOpen(true);
+              setTimeout(() => {
+                handleSelectMeeting(completedMeeting);
+              }, 100);
+            }}
+          >
+            Visa protokoll
+          </ToastAction>
+        ) : undefined
       });
 
     } catch (err: any) {
