@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AuthSetup } from '@/components/AuthSetup';
 import { TranscriptionApp } from '@/components/TranscriptionApp';
-import { HistoryDrawer } from '@/components/HistoryDrawer';
+import { MeetingList } from '@/components/MeetingList';
 import { MeetingDetail } from '@/components/MeetingDetail';
 import { FloatingViewSelector } from '@/components/FloatingViewSelector';
 import { bergetApi } from '@/services/bergetApi';
@@ -96,25 +96,11 @@ const Index = () => {
             onViewChange={handleViewChange}
             className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
           />
-          <div className="min-h-screen bg-background">
-            <HistoryDrawer 
-              isOpen={true}
-              onClose={() => {}} // Stäng inte i fullscreen-läge
-              meetings={meetings}
-              onSelectMeeting={handleSelectMeeting}
-              onDeleteMeeting={(meetingId) => {
-                const updatedMeetings = meetings.filter(m => m.id !== meetingId);
-                setMeetings(updatedMeetings);
-                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
-              }}
-              onUpdateMeeting={(meeting) => {
-                const updatedMeetings = meetings.map(m => m.id === meeting.id ? meeting : m);
-                setMeetings(updatedMeetings);
-                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
-              }}
-              onStartRecording={() => handleViewChange('live')}
-            />
-          </div>
+          <MeetingList 
+            onLogout={handleLogout}
+            onSelectMeeting={handleSelectMeeting}
+            onStartRecording={() => handleViewChange('live')}
+          />
         </>
       );
     
@@ -149,25 +135,11 @@ const Index = () => {
             onViewChange={handleViewChange}
             className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
           />
-          <div className="min-h-screen bg-background">
-            <HistoryDrawer 
-              isOpen={true}
-              onClose={() => {}} // Stäng inte i fullscreen-läge
-              meetings={meetings}
-              onSelectMeeting={handleSelectMeeting}
-              onDeleteMeeting={(meetingId) => {
-                const updatedMeetings = meetings.filter(m => m.id !== meetingId);
-                setMeetings(updatedMeetings);
-                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
-              }}
-              onUpdateMeeting={(meeting) => {
-                const updatedMeetings = meetings.map(m => m.id === meeting.id ? meeting : m);
-                setMeetings(updatedMeetings);
-                localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
-              }}
-              onStartRecording={() => handleViewChange('live')}
-            />
-          </div>
+          <MeetingList 
+            onLogout={handleLogout}
+            onSelectMeeting={handleSelectMeeting}
+            onStartRecording={() => handleViewChange('live')}
+          />
         </>
       );
   }
