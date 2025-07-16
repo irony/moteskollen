@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Play
 } from 'lucide-react';
+import { AppHeader } from './AppHeader';
 import { formatDistance } from 'date-fns';
 import { sv } from 'date-fns/locale';
 
@@ -135,23 +136,11 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
       `}>
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border/30">
-            <div className="flex items-center space-x-2">
-              <Clock className="w-5 h-5 text-primary" />
-              <h2 className="text-lg font-semibold">Möteshistorik</h2>
-              <Badge variant="secondary" className="rounded-full">
-                {meetings.length}
-              </Badge>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClose}
-              className="rounded-full w-8 h-8 p-0"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <AppHeader 
+            title="Möteskollen"
+            badge={{ text: meetings.length }}
+            onClose={onClose}
+          />
 
           {/* Content */}
           <div className="p-4 overflow-y-auto max-h-[calc(70vh-80px)]">
