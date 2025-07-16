@@ -19,7 +19,7 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-2">
-            <Shield className="w-5 h-5 text-green-600" />
+            <Shield className="w-5 h-5" />
             <span>GDPR & Datasäkerhet</span>
           </DialogTitle>
         </DialogHeader>
@@ -45,8 +45,9 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
             </CardHeader>
             <CardContent>
               <div className="bg-muted/30 p-4 rounded-lg">
-                <div className="mermaid">
-{`graph TD
+                <div dangerouslySetInnerHTML={{
+                  __html: `<lov-mermaid>
+graph TD
     A[📱 Din Enhet] --> B[🔒 Lokal Lagring]
     A --> C[🎤 Ljudinspelning]
     
@@ -60,21 +61,8 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
     H --> B
     
     B --> I[💾 Permanent Lagring<br/>Endast på din enhet]
-    
-    style A fill:#e1f5fe
-    style B fill:#e8f5e8
-    style E fill:#fff3e0
-    style F fill:#f3e5f5
-    style I fill:#e8f5e8
-    
-    classDef secure fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef processing fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef device fill:#e1f5fe,stroke:#2196f3,stroke-width:2px
-    
-    class A,I device
-    class B,I secure
-    class E,F processing`}
-                </div>
+</lov-mermaid>`
+                }} />
               </div>
             </CardContent>
           </Card>
@@ -85,13 +73,13 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Smartphone className="w-4 h-4 text-blue-600" />
+                  <Smartphone className="w-4 h-4" />
                   <span>Lokal Lagring</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-start space-x-2">
-                  <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Badge variant="outline">
                     <HardDrive className="w-3 h-3 mr-1" />
                     Säkert
                   </Badge>
@@ -104,7 +92,7 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
                 </div>
                 
                 <div className="flex items-start space-x-2">
-                  <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Badge variant="outline">
                     <Eye className="w-3 h-3 mr-1" />
                     Privat
                   </Badge>
@@ -122,13 +110,13 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
-                  <Server className="w-4 h-4 text-orange-600" />
+                  <Server className="w-4 h-4" />
                   <span>Server-bearbetning</span>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-start space-x-2">
-                  <Badge variant="outline" className="text-orange-600 border-orange-600">
+                  <Badge variant="outline">
                     <Cloud className="w-3 h-3 mr-1" />
                     Tillfälligt
                   </Badge>
@@ -141,7 +129,7 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
                 </div>
                 
                 <div className="flex items-start space-x-2">
-                  <Badge variant="outline" className="text-orange-600 border-orange-600">
+                  <Badge variant="outline">
                     <Shield className="w-3 h-3 mr-1" />
                     Krypterat
                   </Badge>
@@ -155,32 +143,6 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
               </CardContent>
             </Card>
           </div>
-
-          {/* Rättigheter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Dina rättigheter enligt GDPR</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">✅ Rätt till information</h4>
-                  <p className="text-sm text-muted-foreground">Du vet alltid vad som händer med din data</p>
-                  
-                  <h4 className="font-medium">✅ Rätt till radering</h4>
-                  <p className="text-sm text-muted-foreground">Radera dina möten när du vill</p>
-                </div>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium">✅ Rätt till portabilitet</h4>
-                  <p className="text-sm text-muted-foreground">Exportera din data i standardformat</p>
-                  
-                  <h4 className="font-medium">✅ Rätt till kontroll</h4>
-                  <p className="text-sm text-muted-foreground">Full kontroll över vad som delas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Kontaktinfo */}
           <Card className="bg-muted/30">
