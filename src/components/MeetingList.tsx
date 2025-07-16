@@ -38,7 +38,7 @@ import { bergetApi } from '@/services/bergetApi';
 import ReactMarkdown from 'react-markdown';
 import { GlobalSearch } from './GlobalSearch';
 import { HistoryDrawer } from './HistoryDrawer';
-import { AppHeader } from './AppHeader';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type ProtocolTemplate = 'standard' | 'agile' | 'board' | 'interview' | 'lecture';
 
@@ -230,11 +230,44 @@ export const MeetingList: React.FC<MeetingListProps> = ({
       {/* Header */}
       <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border/30">
         <div className="max-w-4xl mx-auto">
-          <AppHeader 
-            title="Möteskollen"
-            badge={{ text: meetings.length }}
-            showUserIcon={true}
-          />
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-lg font-semibold">Möteskollen</h2>
+              <Badge variant="secondary" className="rounded-full">
+                {meetings.length}
+              </Badge>
+            </div>
+            
+            {/* Global sökruta och användarikon */}
+            <div className="flex items-center space-x-2">
+              <GlobalSearch
+                onShowHistory={() => setIsHistoryOpen(true)}
+                onStartRecording={onStartRecording || (() => {})}
+                onFileUpload={() => {}} // Tom för historik-vyn
+                meetingContext=""
+                meetingsCount={meetings.length}
+              />
+
+              {/* Användarikon med dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="rounded-full w-8 h-8 p-0">
+                    <User className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem disabled>
+                    <Settings className="w-4 h-4 mr-2" />
+                    Inställningar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onLogout}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logga ut
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
       </header>
 
