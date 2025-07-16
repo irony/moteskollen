@@ -98,11 +98,25 @@ class BergetApiService {
   private refreshToken: string | null = null;
 
   constructor() {
-    // Import security service dynamically to avoid circular imports
-    import('../lib/security').then(({ securityService }) => {
+    this.loadStoredTokens();
+  }
+
+  // Load stored tokens asynchronously
+  private async loadStoredTokens() {
+    try {
+      const { securityService } = await import('../lib/security');
       this.apiKey = securityService.getSecureToken('berget_api_key');
       this.refreshToken = securityService.getSecureToken('berget_refresh_token');
-    });
+    } catch (error) {
+      console.error('Failed to load stored tokens:', error);
+    }
+  }
+
+  // Ensure tokens are loaded before making requests
+  private async ensureTokensLoaded(): Promise<void> {
+    if (!this.apiKey && !this.refreshToken) {
+      await this.loadStoredTokens();
+    }
   }
 
   // Refresh access token using refresh token
@@ -156,6 +170,9 @@ class BergetApiService {
 
   // Enhanced API request method with automatic token refresh
   private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // Ensure tokens are loaded before making request
+    await this.ensureTokensLoaded();
+    
     if (!this.apiKey) {
       throw new Error('API-nyckel saknas');
     }
