@@ -194,14 +194,17 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                   <div className="space-y-4">
                     <Button
                       onClick={onStartRecording}
-                      className="w-16 h-16 bg-recording hover:bg-recording/90 rounded-full flex items-center justify-center mx-auto animate-pulse"
+                      className="w-20 h-20 bg-primary hover:bg-primary/90 rounded-full flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105"
                     >
-                      <Mic className="w-8 h-8 text-white" />
+                      <div className="flex flex-col items-center space-y-1">
+                        <div className="w-3 h-3 bg-destructive rounded-full" />
+                        <span className="text-xs font-medium text-primary-foreground">REC</span>
+                      </div>
                     </Button>
                     <div>
                       <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
                       <p className="text-muted-foreground mt-2">
-                        Tryck på mikrofonknappen för att starta din första inspelning
+                        Starta din första inspelning
                       </p>
                     </div>
                   </div>
