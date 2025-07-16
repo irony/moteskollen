@@ -95,6 +95,7 @@ const Index = () => {
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
+            onStartRecording={() => handleViewChange('live')}
             className="pt-20" // Add top padding for floating selector
           />
         </>
@@ -137,6 +138,7 @@ const Index = () => {
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
+            onStartRecording={() => handleViewChange('live')}
             className="pt-20"
           />
         </>

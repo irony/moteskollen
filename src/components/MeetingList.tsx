@@ -40,12 +40,14 @@ interface Meeting {
 interface MeetingListProps {
   onLogout: () => void;
   onSelectMeeting: (meeting: Meeting) => void;
+  onStartRecording?: () => void;
   className?: string;
 }
 
 export const MeetingList: React.FC<MeetingListProps> = ({ 
   onLogout, 
   onSelectMeeting,
+  onStartRecording,
   className 
 }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
@@ -190,15 +192,18 @@ export const MeetingList: React.FC<MeetingListProps> = ({
               <div className="text-center py-12">
                 {meetings.length === 0 ? (
                   <div className="space-y-4">
-                    <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
-                      <Mic className="w-8 h-8 text-muted-foreground" />
-                    </div>
+                    <Button
+                      onClick={onStartRecording}
+                      className="w-16 h-16 bg-recording hover:bg-recording/90 rounded-full flex items-center justify-center mx-auto animate-pulse"
+                    >
+                      <Mic className="w-8 h-8 text-white" />
+                    </Button>
                     <div>
                       <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
-                    <p className="text-muted-foreground mt-2">
-                      Använd floating menu för att starta inspelning
-                    </p>
-                  </div>
+                      <p className="text-muted-foreground mt-2">
+                        Tryck på mikrofonknappen för att starta din första inspelning
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
