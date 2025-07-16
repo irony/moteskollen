@@ -8,6 +8,13 @@ interface BergetAuthResponse {
   error?: string;
 }
 
+interface RefreshTokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
+
 interface TranscriptionResponse {
   text: string;
   segments?: Array<{
@@ -88,12 +95,108 @@ interface ApiError {
 class BergetApiService {
   private baseUrl = 'https://api.berget.ai';
   private apiKey: string | null = null;
+  private refreshToken: string | null = null;
 
   constructor() {
     // Import security service dynamically to avoid circular imports
     import('../lib/security').then(({ securityService }) => {
       this.apiKey = securityService.getSecureToken('berget_api_key');
+      this.refreshToken = securityService.getSecureToken('berget_refresh_token');
     });
+  }
+
+  // Refresh access token using refresh token
+  async refreshAccessToken(): Promise<RefreshTokenResponse> {
+    if (!this.refreshToken) {
+      throw new Error('Ingen refresh token tillgänglig');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh_token: this.refreshToken,
+        is_device_token: true
+      })
+    });
+
+    if (!response.ok) {
+      // Om refresh token är ogiltig, rensa tokens och kasta fel
+      this.clearTokens();
+      const errorText = await response.text();
+      throw new Error(`Kunde inte förnya access token: ${response.status} - ${errorText}`);
+    }
+
+    const tokenData: RefreshTokenResponse = await response.json();
+    
+    // Spara de nya tokens
+    await this.storeTokens(tokenData.access_token, tokenData.refresh_token);
+    
+    return tokenData;
+  }
+
+  // Store tokens securely
+  private async storeTokens(accessToken: string, refreshToken: string) {
+    this.refreshToken = refreshToken;
+    const { securityService } = await import('../lib/security');
+    securityService.setSecureToken('berget_refresh_token', refreshToken);
+  }
+
+  // Clear all tokens
+  private clearTokens() {
+    this.apiKey = null;
+    this.refreshToken = null;
+    import('../lib/security').then(({ securityService }) => {
+      securityService.removeSecureToken('berget_api_key');
+      securityService.removeSecureToken('berget_refresh_token');
+    });
+  }
+
+  // Enhanced API request method with automatic token refresh
+  private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    // Add authorization header
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${this.apiKey}`,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    // If we get a 401 and have a refresh token, try to refresh
+    if (response.status === 401 && this.refreshToken) {
+      try {
+        console.log('Access token expired, refreshing...');
+        const newTokens = await this.refreshAccessToken();
+        
+        // Create new API key with refreshed access token
+        const newApiKey = await this.createApiKey(newTokens.access_token);
+        
+        // Retry the original request with new API key
+        const retryHeaders = {
+          ...options.headers,
+          'Authorization': `Bearer ${newApiKey}`,
+        };
+
+        return fetch(url, {
+          ...options,
+          headers: retryHeaders,
+        });
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        throw new Error('API-nyckeln har gått ut och kunde inte förnyas. Vänligen logga in igen.');
+      }
+    }
+
+    return response;
   }
 
   // Device Token Flow för att skapa konto/logga in
@@ -134,8 +237,10 @@ class BergetApiService {
 
     const tokenData = await response.json();
     
-    // Vi behöver inte spara token här - det görs i createApiKey
-    // Token används bara för att skapa API-nyckel
+    // Spara refresh token om det finns
+    if (tokenData.refresh_token) {
+      await this.storeTokens(tokenData.access_token || tokenData.token, tokenData.refresh_token);
+    }
     
     return tokenData;
   }
@@ -187,18 +292,11 @@ class BergetApiService {
   }
 
   clearApiKey() {
-    this.apiKey = null;
-    import('../lib/security').then(({ securityService }) => {
-      securityService.removeSecureToken('berget_api_key');
-    });
+    this.clearTokens();
   }
 
   // Hämta token-användningsstatistik
   async getTokenUsage(startDate?: string, endDate?: string): Promise<TokenUsageResponse> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
     let url = `${this.baseUrl}/v1/usage/tokens`;
     const params = new URLSearchParams();
     
@@ -209,10 +307,9 @@ class BergetApiService {
       url += `?${params.toString()}`;
     }
 
-    const response = await fetch(url, {
+    const response = await this.makeAuthenticatedRequest(url, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       }
     });
@@ -227,14 +324,9 @@ class BergetApiService {
 
   // Hämta prenumerationsanvändning
   async getSubscriptionUsage(): Promise<SubscriptionUsageResponse> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
-    const response = await fetch(`${this.baseUrl}/v1/usage/subscriptions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/usage/subscriptions`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       }
     });
@@ -291,10 +383,6 @@ class BergetApiService {
 
   // Transkribera ljudfil
   async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
     // Validate file upload
     const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
     const { securityService } = await import('../lib/security');
@@ -307,11 +395,8 @@ class BergetApiService {
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('language', 'sv');
 
-    const response = await fetch(`${this.baseUrl}/v1/audio/transcriptions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/audio/transcriptions`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
       body: formData
     });
 
@@ -327,10 +412,6 @@ class BergetApiService {
 
   // OCR för dokument
   async processDocument(documentBlob: Blob): Promise<{ text: string }> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
     // Use security service for file validation
     const file = new File([documentBlob], 'document', { type: documentBlob.type });
     const { securityService } = await import('../lib/security');
@@ -352,10 +433,9 @@ class BergetApiService {
       // Använd alltid async processing
       const useAsync = true;
 
-      const response = await fetch(`${this.baseUrl}/v1/ocr`, {
+      const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/ocr`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -471,20 +551,15 @@ class BergetApiService {
 
   // Summera och städa text till protokoll
   async summarizeToProtocol(text: string, customSystemPrompt?: string): Promise<SummaryResponse> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
     const currentDate = new Date().toLocaleDateString('sv-SE', { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
     });
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -543,14 +618,9 @@ class BergetApiService {
 
   // Generera text med AI
   async generateText(prompt: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -575,14 +645,9 @@ class BergetApiService {
 
   // Städa och förbättra protokoll i realtid
   async cleanupProtocol(currentProtocol: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -626,10 +691,6 @@ Regler:
 
   // Chatta med AI om möten med tool support
   async chatWithMeetings(message: string, meetingContext?: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
     const systemPrompt = meetingContext 
       ? `Du är en AI-assistent som hjälper med att analysera och diskutera möten. Du har tillgång till följande möteskontext: "${meetingContext}". Svara på svenska och ge hjälpsamma och relevanta svar baserat på mötesinnehållet.
 
@@ -690,10 +751,9 @@ När användaren frågar om andra möten, använd get_meeting_content verktyget 
       }
     ];
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -762,14 +822,9 @@ När användaren frågar om andra möten, använd get_meeting_content verktyget 
 
   // Analysera pågående möte för att identifiera typ och deltagare
   async analyzeMeeting(transcriptionText: string): Promise<MeetingAnalysisResponse> {
-    if (!this.apiKey) {
-      throw new Error('API-nyckel saknas');
-    }
-
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
