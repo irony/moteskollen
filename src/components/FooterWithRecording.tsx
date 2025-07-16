@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { History, Mic, Square, Upload } from 'lucide-react';
+import { GDPRInfo } from './GDPRInfo';
 
 interface FooterWithRecordingProps {
   isRecording: boolean;
@@ -146,12 +147,14 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
           {/* Höger: Status och GDPR */}
           <div className="flex items-center space-x-3">
             {/* GDPR badge */}
-            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
-              <div className="w-5 h-3 bg-blue-600 rounded-sm flex items-center justify-center">
-                <span className="text-[8px] font-bold text-white">EU</span>
+            <GDPRInfo>
+              <div className="flex items-center space-x-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                <div className="w-5 h-3 bg-blue-600 rounded-sm flex items-center justify-center">
+                  <span className="text-[8px] font-bold text-white">EU</span>
+                </div>
+                <span className="hidden sm:inline">GDPR</span>
               </div>
-              <span className="hidden sm:inline">GDPR</span>
-            </div>
+            </GDPRInfo>
             
             {/* Status */}
             <div className="text-xs text-muted-foreground">
@@ -160,9 +163,7 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
                   <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                   <span>{isPaused ? 'Pausad' : 'Spelar in'}</span>
                 </div>
-              ) : (
-                <span>Klar att spela in</span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
