@@ -32,19 +32,51 @@ interface MeetingAnalysisResponse {
   confidence: number;
 }
 
-interface UsageResponse {
-  balance: number;
-  usage: {
-    total_cost: number;
-    total_tokens: number;
-    requests: number;
-  };
-  recent_usage?: {
+interface TokenUsageResponse {
+  usage: Array<{
     date: string;
-    cost: number;
-    tokens: number;
-    requests: number;
-  }[];
+    model: string;
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    cost: {
+      amount: number;
+      currency: string;
+    };
+  }>;
+  total: {
+    input_tokens: number;
+    output_tokens: number;
+    total_tokens: number;
+    cost: {
+      amount: number;
+      currency: string;
+    };
+  };
+  period: {
+    start: string;
+    end: string;
+  };
+}
+
+interface SubscriptionUsageResponse {
+  name: string;
+  status: string;
+  startDate: string;
+  createDate: string;
+  partnerId: string;
+  planCode: string;
+  endDate: string;
+  cancelDate: string;
+  currentBillingPeriodStartDate: string;
+  currentBillingPeriodEndDate: string;
+  usage: {
+    currentUsageAmountCents: number;
+    externalHistoricalUsageAmountCents: number;
+    fromDateTime: string;
+    toDateTime: string;
+    invoicedUsageAmountCents: number;
+  };
 }
 
 interface ApiError {
@@ -161,13 +193,45 @@ class BergetApiService {
     });
   }
 
-  // Hämta användningsstatistik och saldo
-  async getUsage(): Promise<UsageResponse> {
+  // Hämta token-användningsstatistik
+  async getTokenUsage(startDate?: string, endDate?: string): Promise<TokenUsageResponse> {
     if (!this.apiKey) {
       throw new Error('API-nyckel saknas');
     }
 
-    const response = await fetch(`${this.baseUrl}/v1/usage`, {
+    let url = `${this.baseUrl}/v1/usage/tokens`;
+    const params = new URLSearchParams();
+    
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const error = await this.parseApiError(response);
+      throw error;
+    }
+
+    return response.json();
+  }
+
+  // Hämta prenumerationsanvändning
+  async getSubscriptionUsage(): Promise<SubscriptionUsageResponse> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/usage/subscriptions`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${this.apiKey}`,

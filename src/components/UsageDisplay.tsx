@@ -21,7 +21,8 @@ interface UsageDisplayProps {
 }
 
 export const UsageDisplay: React.FC<UsageDisplayProps> = ({ isVisible, onClose }) => {
-  const [usage, setUsage] = useState<any>(null);
+  const [tokenUsage, setTokenUsage] = useState<any>(null);
+  const [subscriptionUsage, setSubscriptionUsage] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
@@ -31,8 +32,14 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({ isVisible, onClose }
     setError(null);
     
     try {
-      const usageData = await bergetApi.getUsage();
-      setUsage(usageData);
+      // Hämta både token usage och subscription usage
+      const [tokenData, subscriptionData] = await Promise.all([
+        bergetApi.getTokenUsage(),
+        bergetApi.getSubscriptionUsage().catch(() => null) // Subscription kan vara optional
+      ]);
+      
+      setTokenUsage(tokenData);
+      setSubscriptionUsage(subscriptionData);
     } catch (err: any) {
       if (err.type === 'quota_exceeded') {
         setError('API-kvoten är slut. Fyll på ditt konto för att fortsätta.');
@@ -52,25 +59,38 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({ isVisible, onClose }
     }
   }, [isVisible]);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, currency = 'SEK') => {
+    // Konvertera cents till currency units om det behövs
+    const actualAmount = currency === 'SEK' ? amount / 100 : amount;
+    
     return new Intl.NumberFormat('sv-SE', {
       style: 'currency',
-      currency: 'SEK',
+      currency: currency === 'USD' ? 'USD' : 'SEK',
       minimumFractionDigits: 2
-    }).format(amount);
+    }).format(actualAmount);
   };
 
-  const getBalanceStatus = (balance: number) => {
-    if (balance <= 0) return { color: 'destructive', text: 'Slut på krediter' };
-    if (balance < 50) return { color: 'warning', text: 'Lågt saldo' };
-    return { color: 'success', text: 'Gott saldo' };
+  const getRemainingBalance = () => {
+    if (!subscriptionUsage?.usage) return null;
+    
+    const currentUsage = subscriptionUsage.usage.currentUsageAmountCents || 0;
+    // Om vi har en plan med begränsningar, skulle vi beräkna återstående här
+    // För nu visar vi bara aktuell användning
+    return currentUsage;
+  };
+
+  const getUsageStatus = (currentUsage: number) => {
+    // Detta skulle kunna baseras på plan-gränser i framtiden
+    if (currentUsage > 10000) return { color: 'destructive', text: 'Hög användning' };
+    if (currentUsage > 5000) return { color: 'warning', text: 'Måttlig användning' };
+    return { color: 'success', text: 'Låg användning' };
   };
 
   if (!isVisible) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Card className="w-full max-w-4xl max-h-[80vh] overflow-y-auto">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center space-x-2">
             <CreditCard className="w-5 h-5" />
@@ -118,106 +138,145 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({ isVisible, onClose }
               <RefreshCw className="w-6 h-6 animate-spin mr-2" />
               <span>Hämtar användningsdata...</span>
             </div>
-          ) : usage ? (
+          ) : (tokenUsage || subscriptionUsage) ? (
             <>
-              {/* Saldo översikt */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-primary">
-                        {formatCurrency(usage.balance)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Aktuellt saldo</div>
-                      <Badge 
-                        variant={getBalanceStatus(usage.balance).color === 'destructive' ? 'destructive' : 'default'}
-                        className="mt-2"
-                      >
-                        {getBalanceStatus(usage.balance).text}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold">
-                        {formatCurrency(usage.usage.total_cost)}
-                      </div>
-                      <div className="text-sm text-muted-foreground">Total kostnad</div>
-                      <div className="flex items-center justify-center mt-2 text-xs text-muted-foreground">
-                        <TrendingUp className="w-3 h-3 mr-1" />
-                        Denna månad
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">
-                        {usage.usage.requests.toLocaleString()}
-                      </div>
-                      <div className="text-sm text-muted-foreground">API-anrop</div>
-                      <div className="flex items-center justify-center mt-2 text-xs text-muted-foreground">
-                        <Zap className="w-3 h-3 mr-1" />
-                        Totalt gjorda
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Varning vid lågt saldo */}
-              {usage.balance < 50 && (
-                <Alert variant={usage.balance <= 0 ? 'destructive' : 'default'}>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    {usage.balance <= 0 
-                      ? 'Ditt saldo är slut. Du kan inte göra fler API-anrop förrän du fyller på ditt konto.'
-                      : `Lågt saldo: ${formatCurrency(usage.balance)}. Överväg att fylla på ditt konto snart.`
-                    }
-                  </AlertDescription>
-                  <div className="mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => window.open('https://berget.ai', '_blank')}
-                      className="flex items-center space-x-2"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span>Fyll på konto</span>
-                    </Button>
-                  </div>
-                </Alert>
-              )}
-
-              {/* Senaste användning */}
-              {usage.recent_usage && usage.recent_usage.length > 0 && (
+              {/* Prenumerationsöversikt */}
+              {subscriptionUsage && (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Senaste användning</CardTitle>
+                    <CardTitle className="text-lg">Prenumerationsstatus</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {usage.recent_usage.slice(0, 5).map((day: any, index: number) => (
-                        <div key={index} className="flex justify-between items-center py-2 border-b last:border-b-0">
-                          <div>
-                            <div className="font-medium">{day.date}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {day.requests} anrop
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Status</div>
+                        <div className="font-medium">{subscriptionUsage.status}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Plan</div>
+                        <div className="font-medium">{subscriptionUsage.planCode}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Period</div>
+                        <div className="font-medium text-xs">
+                          {new Date(subscriptionUsage.currentBillingPeriodStartDate).toLocaleDateString('sv-SE')} - 
+                          {new Date(subscriptionUsage.currentBillingPeriodEndDate).toLocaleDateString('sv-SE')}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Token användning översikt */}
+              {tokenUsage && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-primary">
+                            {formatCurrency(tokenUsage.total.cost.amount, tokenUsage.total.cost.currency)}
                           </div>
-                          <div className="text-right">
-                            <div className="font-medium">{formatCurrency(day.cost)}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {day.tokens.toLocaleString()} tokens
-                            </div>
+                          <div className="text-sm text-muted-foreground">Total kostnad</div>
+                          <div className="flex items-center justify-center mt-2 text-xs text-muted-foreground">
+                            <TrendingUp className="w-3 h-3 mr-1" />
+                            {tokenUsage.period.start} - {tokenUsage.period.end}
                           </div>
                         </div>
-                      ))}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-blue-600">
+                            {tokenUsage.total.total_tokens.toLocaleString()}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Totala tokens</div>
+                          <div className="flex items-center justify-center mt-2 text-xs text-muted-foreground">
+                            <Zap className="w-3 h-3 mr-1" />
+                            {tokenUsage.total.input_tokens.toLocaleString()} in / {tokenUsage.total.output_tokens.toLocaleString()} ut
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-green-600">
+                            {tokenUsage.usage.length}
+                          </div>
+                          <div className="text-sm text-muted-foreground">Aktiva dagar</div>
+                          <div className="flex items-center justify-center mt-2 text-xs text-muted-foreground">
+                            <DollarSign className="w-3 h-3 mr-1" />
+                            Med API-användning
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Användning per dag och modell */}
+                  {tokenUsage.usage && tokenUsage.usage.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Detaljerad användning</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                          {tokenUsage.usage.slice(0, 10).map((day: any, index: number) => (
+                            <div key={index} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                              <div>
+                                <div className="font-medium">{day.date}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  {day.model}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="font-medium">
+                                  {formatCurrency(day.cost.amount, day.cost.currency)}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {day.total_tokens.toLocaleString()} tokens
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
+
+              {/* Aktuell period användning (från subscription) */}
+              {subscriptionUsage?.usage && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Aktuell period</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold">
+                          {formatCurrency(subscriptionUsage.usage.currentUsageAmountCents)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Aktuell användning</div>
+                        <Badge 
+                          variant={getUsageStatus(subscriptionUsage.usage.currentUsageAmountCents).color === 'destructive' ? 'destructive' : 'default'}
+                          className="mt-2"
+                        >
+                          {getUsageStatus(subscriptionUsage.usage.currentUsageAmountCents).text}
+                        </Badge>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {formatCurrency(subscriptionUsage.usage.invoicedUsageAmountCents)}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Fakturerad användning</div>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -229,10 +288,21 @@ export const UsageDisplay: React.FC<UsageDisplayProps> = ({ isVisible, onClose }
                   <div className="space-y-2">
                     <h4 className="font-medium">Kostnadsinformation</h4>
                     <div className="text-sm text-muted-foreground space-y-1">
-                      <p>• Transkribering: Kostnad per minut ljudfil</p>
-                      <p>• Protokollgenerering: Kostnad per genererat protokoll</p>
-                      <p>• AI-chat: Kostnad per meddelande</p>
-                      <p>• Priser uppdateras automatiskt och visas i realtid</p>
+                      <p>• Transkribering: Kostnad per minut ljudfil och antal tokens</p>
+                      <p>• Protokollgenerering: Kostnad baserat på input/output tokens</p>
+                      <p>• AI-chat: Kostnad per meddelande och tokens</p>
+                      <p>• Kostnader visas för aktuell faktureringsperiod</p>
+                    </div>
+                    <div className="mt-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => window.open('https://berget.ai', '_blank')}
+                        className="flex items-center space-x-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span>Hantera konto på Berget.ai</span>
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
