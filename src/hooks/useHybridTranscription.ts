@@ -62,6 +62,7 @@ export const useHybridTranscription = (
   const currentSegmentChunksRef = useRef<Blob[]>([]);
   const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastCleanupRef = useRef<string>('');
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Kontrollera Speech API support
   const speechSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -88,6 +89,12 @@ export const useHybridTranscription = (
 
       const now = new Date();
       const audioTime = (now.getTime() - recordingStartTimeRef.current) / 1000;
+
+      // Rensa tidigare silence timer vid varje resultat
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
 
       if (isFinal) {
         // Final resultat - skapa eller uppdatera segment
@@ -159,6 +166,21 @@ export const useHybridTranscription = (
             return [...prev, tempSegment];
           }
         });
+
+        // Sätt timer för att skicka till Berget efter 300ms tystnad
+        silenceTimerRef.current = setTimeout(() => {
+          if (pendingSegmentId && currentInterimText.trim().length > 10 && !sentSegmentsRef.current.has(pendingSegmentId)) {
+            console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId);
+            
+            // Spara audio-chunks för detta segment
+            if (currentSegmentChunksRef.current.length > 0) {
+              segmentAudioRef.current.set(pendingSegmentId, [...currentSegmentChunksRef.current]);
+            }
+
+            sentSegmentsRef.current.add(pendingSegmentId);
+            sendAudioSegmentToBerget(pendingSegmentId, segmentStartTimeRef.current, audioTime);
+          }
+        }, 300);
       }
     };
 
@@ -338,6 +360,12 @@ export const useHybridTranscription = (
     if (cleanupTimerRef.current) {
       clearInterval(cleanupTimerRef.current);
       cleanupTimerRef.current = null;
+    }
+
+    // Stoppa silence timer
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
     }
 
     // Stoppa Speech Recognition
