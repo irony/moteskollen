@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import ReactMarkdown from 'react-markdown';
 import { 
   Loader2, 
@@ -38,7 +38,8 @@ import {
   Upload,
   Paperclip,
   Menu,
-  Square
+  Square,
+  User
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
@@ -48,7 +49,7 @@ import { HybridTranscription } from './HybridTranscription';
 import { ChatInterface } from './ChatInterface';
 import { FooterWithRecording } from './FooterWithRecording';
 import { HistoryDrawer } from './HistoryDrawer';
-import { AppSidebar } from './AppSidebar';
+
 import { GlobalSearch } from './GlobalSearch';
 import { bergetApi } from '@/services/bergetApi';
 import { cn } from '@/lib/utils';
@@ -459,30 +460,19 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
   return (
     <div className={cn("min-h-screen", className)}>
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full">
-        {/* Sidebar */}
-        <AppSidebar onLogout={onLogout} />
-
+      <div className="min-h-screen w-full">
         {/* Huvudinnehåll */}
-        <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
-          {/* Header med hamburgermeny */}
+        <main className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
+          {/* Header med användarikon */}
           <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/30">
             <div className="max-w-4xl mx-auto px-4 md:px-6 py-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {/* Hamburgermeny (synlig på alla enheter) */}
-                  <SidebarTrigger className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                    <Menu className="w-5 h-5" />
-                  </SidebarTrigger>
-                  
-                  <div className="space-y-1">
-                    <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">Live Transkribering</h1>
-                    <p className="text-xs md:text-sm text-muted-foreground font-medium">Powered by Berget AI</p>
-                  </div>
+                <div className="space-y-1">
+                  <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">Live Transkribering</h1>
+                  <p className="text-xs md:text-sm text-muted-foreground font-medium">Powered by Berget AI</p>
                 </div>
                 
-                {/* Global sökruta och visuell indikator */}
+                {/* Global sökruta och användarikon */}
                 <div className="flex items-center space-x-4">
                   <GlobalSearch
                     onShowHistory={handleShowHistory}
@@ -500,6 +490,25 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
                       </Badge>
                     )}
                   </div>
+
+                  {/* Användarikon med dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="rounded-full">
+                        <User className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Inställningar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onLogout}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logga ut
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
@@ -559,7 +568,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
             disabled={isProcessingFile}
           />
         </main>
-        </div>
 
         {/* Historik Drawer */}
         <HistoryDrawer
@@ -571,7 +579,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
           onEditMeetingTitle={editMeetingTitle}
           onStartChat={handleStartChat}
         />
-      </SidebarProvider>
+      </div>
     </div>
   );
 };

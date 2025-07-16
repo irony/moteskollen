@@ -143,8 +143,17 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
             )}
           </div>
 
-          {/* Höger: Status */}
-          <div className="text-right">
+          {/* Höger: Status och GDPR */}
+          <div className="flex items-center space-x-3">
+            {/* GDPR badge */}
+            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+              <div className="w-5 h-3 bg-blue-600 rounded-sm flex items-center justify-center">
+                <span className="text-[8px] font-bold text-white">EU</span>
+              </div>
+              <span className="hidden sm:inline">GDPR</span>
+            </div>
+            
+            {/* Status */}
             <div className="text-xs text-muted-foreground">
               {isRecording ? (
                 <div className="flex items-center space-x-1">
