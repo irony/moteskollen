@@ -60,6 +60,8 @@ export const useHybridTranscription = (
   const sentSegmentsRef = useRef<Set<string>>(new Set());
   const segmentAudioRef = useRef<Map<string, Blob[]>>(new Map());
   const currentSegmentChunksRef = useRef<Blob[]>([]);
+  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCleanupRef = useRef<string>('');
 
   // Kontrollera Speech API support
   const speechSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -319,6 +321,9 @@ export const useHybridTranscription = (
 
       setIsRecording(true);
       monitorAudioLevel();
+      
+      // Starta kontinuerlig protokollstädning var 30:e sekund
+      startProtocolCleanup();
 
     } catch (err) {
       setError('Kunde inte komma åt mikrofonen. Kontrollera behörigheter.');
@@ -328,6 +333,12 @@ export const useHybridTranscription = (
 
   const stopRecording = useCallback(async () => {
     setIsRecording(false);
+    
+    // Stoppa protokollstädning
+    if (cleanupTimerRef.current) {
+      clearInterval(cleanupTimerRef.current);
+      cleanupTimerRef.current = null;
+    }
 
     // Stoppa Speech Recognition
     if (recognitionRef.current) {
@@ -381,6 +392,55 @@ export const useHybridTranscription = (
     updateLevel();
   }, [isRecording]);
 
+  // Kontinuerlig protokollstädning
+  const startProtocolCleanup = useCallback(() => {
+    cleanupTimerRef.current = setInterval(async () => {
+      const currentProtocol = segments
+        .filter(s => !s.isLocal) // Bara Berget AI-segment (de som är finpolerade)
+        .map(s => s.text)
+        .join(' ');
+
+      // Bara städa om det finns tillräckligt med text och den har ändrats
+      if (currentProtocol.length > 50 && currentProtocol !== lastCleanupRef.current) {
+        try {
+          const { bergetApi } = await import('@/services/bergetApi');
+          const cleanedProtocol = await bergetApi.cleanupProtocol(currentProtocol);
+          
+          if (cleanedProtocol && cleanedProtocol !== currentProtocol) {
+            console.log('Protokoll städat av Berget AI');
+            
+            // Uppdatera alla Berget AI-segment med den städade texten
+            // Dela upp den städade texten proportionellt baserat på ursprungslängder
+            const originalSegments = segments.filter(s => !s.isLocal);
+            if (originalSegments.length > 0) {
+              const wordsPerSegment = cleanedProtocol.split(' ').length / originalSegments.length;
+              const cleanedWords = cleanedProtocol.split(' ');
+              
+              setSegments(prev => prev.map((segment, index) => {
+                if (!segment.isLocal) {
+                  const segmentIndex = prev.filter((s, i) => i < index && !s.isLocal).length;
+                  const startWord = Math.floor(segmentIndex * wordsPerSegment);
+                  const endWord = Math.floor((segmentIndex + 1) * wordsPerSegment);
+                  const segmentText = cleanedWords.slice(startWord, endWord).join(' ');
+                  
+                  return {
+                    ...segment,
+                    text: segmentText || segment.text
+                  };
+                }
+                return segment;
+              }));
+            }
+            
+            lastCleanupRef.current = cleanedProtocol;
+          }
+        } catch (error) {
+          console.error('Protokollstädning misslyckades:', error);
+        }
+      }
+    }, 30000); // Var 30:e sekund
+  }, [segments]);
+
   // Rensa vid unmount
   useEffect(() => {
     return () => {
@@ -389,6 +449,9 @@ export const useHybridTranscription = (
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (cleanupTimerRef.current) {
+        clearInterval(cleanupTimerRef.current);
       }
     };
   }, []);

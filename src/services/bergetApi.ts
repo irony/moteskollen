@@ -419,6 +419,57 @@ class BergetApiService {
     return result.choices[0].message.content.trim();
   }
 
+  // Städa och förbättra protokoll i realtid
+  async cleanupProtocol(currentProtocol: string): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: `Du städar och förbättrar live-protokoll från pågående möten. Din uppgift:
+
+1. Rätta språkfel och stavfel
+2. Förbättra meningsbyggnad utan att ändra betydelse
+3. Ta bort upprepningar och fyllnadsord ("eh", "mm", etc.)
+4. Behåll ALLA viktiga detaljer och beslut
+5. Kombinera meningar som hör ihop
+6. Om någon rättar sig ("nej vänta, det var..." etc) - använd den rättade versionen
+7. Behåll kronologisk ordning
+8. Svara bara med den förbättrade texten, inga extra kommentarer
+
+Regler:
+- Ändra ALDRIG faktainnehåll eller beslut
+- Ta bort bara språkliga fel, inte innehåll
+- Om text är otydlig, behåll den som den är`
+          },
+          {
+            role: 'user',
+            content: `Städa detta live-protokoll:\n\n${currentProtocol}`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1500
+      })
+    });
+
+    if (!response.ok) {
+      console.error('Protocol cleanup failed:', response.status);
+      return currentProtocol; // Returnera original vid fel
+    }
+
+    const result = await response.json();
+    return result.choices[0].message.content.trim();
+  }
+
   // Chatta med AI om möten med tool support
   async chatWithMeetings(message: string, meetingContext?: string): Promise<string> {
     if (!this.apiKey) {
