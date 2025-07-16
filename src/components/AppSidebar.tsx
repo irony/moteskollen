@@ -68,7 +68,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({
         {/* Huvud-sektion */}
         <SidebarGroup>
           <SidebarGroupLabel className="text-lg font-semibold text-foreground">
-            Protokoll Klippare
+            Möteskollen
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">

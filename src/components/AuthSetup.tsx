@@ -127,7 +127,7 @@ export const AuthSetup: React.FC<AuthSetupProps> = ({ onAuthenticated }) => {
             <Key className="w-8 h-8 text-primary-foreground" />
           </div>
           <div>
-            <CardTitle className="text-2xl">Protokoll Klippare</CardTitle>
+            <CardTitle className="text-2xl">Möteskollen</CardTitle>
             <CardDescription className="text-base">
               Powered by Berget AI
             </CardDescription>
