@@ -80,6 +80,7 @@ export const useHybridTranscription = (
 
     let pendingSegmentId: string | null = null;
     let currentInterimText = '';
+    let hasBeenSentToBerget = false; // Track if current segment has been sent
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const lastResult = event.results[event.results.length - 1];
@@ -127,7 +128,8 @@ export const useHybridTranscription = (
         });
 
         // Skicka ljudsegment till Berget AI för förbättring (bara om vi inte redan skickat det)
-        if (transcript.trim().length > 10 && !sentSegmentsRef.current.has(segmentId)) {
+        if (transcript.trim().length > 10 && !hasBeenSentToBerget) {
+          console.log('Skickar final segment till Berget:', segmentId);
           sentSegmentsRef.current.add(segmentId);
           sendAudioSegmentToBerget(segmentId, segmentStartTimeRef.current, audioTime);
         }
@@ -136,6 +138,7 @@ export const useHybridTranscription = (
         segmentStartTimeRef.current = audioTime;
         pendingSegmentId = null;
         currentInterimText = '';
+        hasBeenSentToBerget = false;
         currentSegmentChunksRef.current = [];
 
       } else {
@@ -169,7 +172,7 @@ export const useHybridTranscription = (
 
         // Sätt timer för att skicka till Berget efter 300ms tystnad
         silenceTimerRef.current = setTimeout(() => {
-          if (pendingSegmentId && currentInterimText.trim().length > 10 && !sentSegmentsRef.current.has(pendingSegmentId)) {
+          if (pendingSegmentId && currentInterimText.trim().length > 10 && !hasBeenSentToBerget) {
             console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId);
             
             // Spara audio-chunks för detta segment
@@ -177,7 +180,7 @@ export const useHybridTranscription = (
               segmentAudioRef.current.set(pendingSegmentId, [...currentSegmentChunksRef.current]);
             }
 
-            sentSegmentsRef.current.add(pendingSegmentId);
+            hasBeenSentToBerget = true; // Mark as sent to prevent duplicate sends
             sendAudioSegmentToBerget(pendingSegmentId, segmentStartTimeRef.current, audioTime);
           }
         }, 300);
