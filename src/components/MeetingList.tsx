@@ -233,9 +233,16 @@ export const MeetingList: React.FC<MeetingListProps> = ({
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center space-x-2">
               <h2 className="text-lg font-semibold">Möteskollen</h2>
-              <Badge variant="secondary" className="rounded-full">
-                {meetings.length}
-              </Badge>
+              {/* Klickbar badge för antal möten - samma position som i live-vyn */}
+              {meetings.length > 0 && (
+                <Badge 
+                  variant="secondary" 
+                  className="rounded-full cursor-pointer hover:bg-secondary/80 transition-colors"
+                  onClick={() => setIsHistoryOpen(true)}
+                >
+                  {meetings.length}
+                </Badge>
+              )}
             </div>
             
             {/* Global sökruta och användarikon */}

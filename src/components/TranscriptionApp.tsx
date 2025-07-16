@@ -470,6 +470,16 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
               <div className="flex items-center justify-between p-4">
                 <div className="flex items-center space-x-2">
                   <h2 className="text-lg font-semibold">Möteskollen</h2>
+                  {/* Klickbar badge för antal möten */}
+                  {meetings.length > 0 && (
+                    <Badge 
+                      variant="secondary" 
+                      className="rounded-full cursor-pointer hover:bg-secondary/80 transition-colors"
+                      onClick={handleShowHistory}
+                    >
+                      {meetings.length}
+                    </Badge>
+                  )}
                 </div>
                 
                 {/* Global sökruta och användarikon */}
@@ -482,13 +492,6 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
                     meetingsCount={meetings.length}
                   />
                   
-                  {/* Visuell indikator för antal möten */}
-                  {meetings.length > 0 && (
-                    <Badge variant="secondary" className="rounded-full text-xs">
-                      {meetings.length}
-                    </Badge>
-                  )}
-
                   {/* Användarikon med dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
