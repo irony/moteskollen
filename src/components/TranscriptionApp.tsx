@@ -467,10 +467,48 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
           {/* Header med användarikon */}
           <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border/30">
             <div className="max-w-4xl mx-auto">
-              <AppHeader 
-                title="Möteskollen"
-                showUserIcon={true}
-              />
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-lg font-semibold">Möteskollen</h2>
+                </div>
+                
+                {/* Global sökruta och användarikon */}
+                <div className="flex items-center space-x-2">
+                  <GlobalSearch
+                    onShowHistory={handleShowHistory}
+                    onStartRecording={handleStartRecording}
+                    onFileUpload={handleFileUpload}
+                    meetingContext={selectedMeeting ? getMeetingContext(selectedMeeting) : getGlobalContext()}
+                    meetingsCount={meetings.length}
+                  />
+                  
+                  {/* Visuell indikator för antal möten */}
+                  {meetings.length > 0 && (
+                    <Badge variant="secondary" className="rounded-full text-xs">
+                      {meetings.length}
+                    </Badge>
+                  )}
+
+                  {/* Användarikon med dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="rounded-full w-8 h-8 p-0">
+                        <User className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem disabled>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Inställningar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onLogout}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Logga ut
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             </div>
           </header>
 
