@@ -105,7 +105,7 @@ const Index = () => {
           <FloatingViewSelector 
             currentView={currentView}
             onViewChange={handleViewChange}
-            className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-30"
+            className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-30"
           />
           <TranscriptionApp 
             onLogout={handleLogout}
