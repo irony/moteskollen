@@ -294,10 +294,12 @@ export const useHybridTranscription = (
   };
 
   const startRecording = useCallback(async () => {
+    console.log('useHybridTranscription: startRecording called');
     try {
       setError(null);
       setSegments([]);
       
+      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
@@ -306,6 +308,7 @@ export const useHybridTranscription = (
           sampleRate: 16000
         } 
       });
+      console.log('Microphone access granted');
 
       streamRef.current = stream;
       recordingStartTimeRef.current = Date.now();
