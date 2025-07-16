@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Plus, 
-  Search, 
+   
   Calendar, 
   Clock, 
   FileText, 
@@ -36,6 +36,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { GlobalSearch } from './GlobalSearch';
 import { ChatInterface } from './ChatInterface';
 import { UsageDisplay } from './UsageDisplay';
+import { GDPRInfo } from './GDPRInfo';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { bergetApi } from '@/services/bergetApi';
@@ -67,7 +68,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   className 
 }) => {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [expandedMeeting, setExpandedMeeting] = useState<string | null>(null);
   const [isGeneratingProtocol, setIsGeneratingProtocol] = useState(false);
@@ -83,10 +84,6 @@ export const MeetingList: React.FC<MeetingListProps> = ({
     setMeetings(savedMeetings.map((m: any) => ({ ...m, date: new Date(m.date) })));
   }, []);
 
-  const filteredMeetings = meetings.filter(meeting =>
-    meeting.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    meeting.summary?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const deleteMeeting = (meetingId: string) => {
     const updatedMeetings = meetings.filter(m => m.id !== meetingId);
@@ -313,57 +310,39 @@ export const MeetingList: React.FC<MeetingListProps> = ({
 
           <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
             {/* Säkerhetsinformation */}
-            <Alert>
-              <Shield className="h-4 w-4" />
-              <AlertDescription>
-                <strong>100% GDPR-kompatibel</strong> - All data bearbetas inom Sverige. Inget skickas utanför EU.
-              </AlertDescription>
-            </Alert>
-
-            {/* Sök */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Sök bland dina möten..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center justify-center">
+              <GDPRInfo>
+                <Badge variant="outline" className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Shield className="w-3 h-3 mr-1" />
+                  100% GDPR-kompatibel
+                </Badge>
+              </GDPRInfo>
             </div>
 
             {/* Möten */}
-            {filteredMeetings.length === 0 ? (
+            {meetings.length === 0 ? (
               <div className="text-center py-12">
-                {meetings.length === 0 ? (
-                  <div className="space-y-4">
-                    <Button
-                      onClick={onStartRecording}
-                      className="w-20 h-20 bg-primary hover:bg-primary/90 rounded-full flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105"
-                    >
-                      <div className="flex flex-col items-center space-y-1">
-                        <div className="w-3 h-3 bg-destructive rounded-full" />
-                        <span className="text-xs font-medium text-primary-foreground">REC</span>
-                      </div>
-                    </Button>
-                    <div>
-                      <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
-                      <p className="text-muted-foreground mt-2">
-                        Starta din första inspelning
-                      </p>
+                <div className="space-y-4">
+                  <Button
+                    onClick={onStartRecording}
+                    className="w-20 h-20 bg-primary hover:bg-primary/90 rounded-full flex items-center justify-center mx-auto transition-all duration-300 hover:scale-105"
+                  >
+                    <div className="flex flex-col items-center space-y-1">
+                      <div className="w-3 h-3 bg-destructive rounded-full" />
+                      <span className="text-xs font-medium text-primary-foreground">REC</span>
                     </div>
+                  </Button>
+                  <div>
+                    <h3 className="text-xl font-medium text-foreground">Inga möten än</h3>
+                    <p className="text-muted-foreground mt-2">
+                      Starta din första inspelning
+                    </p>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground">Inga möten matchade din sökning</p>
-                    <Button variant="outline" onClick={() => setSearchQuery('')}>
-                      Rensa sökning
-                    </Button>
-                  </div>
-                )}
+                </div>
               </div>
             ) : (
               <div className="grid gap-4">
-                {filteredMeetings.map((meeting) => (
+                {meetings.map((meeting) => (
                   <Collapsible
                     key={meeting.id}
                     open={expandedMeeting === meeting.id}
