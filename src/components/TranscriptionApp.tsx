@@ -543,55 +543,32 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
             )}
           </div>
 
-          {/* Bottom navigation bar */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/95 backdrop-blur-md border-t border-border/30">
-            <div className="max-w-4xl mx-auto px-4 py-3">
-              <div className="flex items-center justify-between">
-                {/* Recording button on the left */}
-                <Button
-                  onClick={isRecording ? handleStopRecording : handleStartRecording}
-                  variant={isRecording ? "destructive" : "default"}
-                  size="lg"
-                  className={`rounded-full transition-all duration-300 ${
-                    isRecording 
-                      ? 'bg-destructive hover:bg-destructive/90 animate-pulse' 
-                      : 'neu-button'
-                  }`}
-                >
-                  {isRecording ? (
-                    <Square className="w-6 h-6" fill="currentColor" />
-                  ) : (
-                    <Mic className="w-6 h-6" />
-                  )}
-                </Button>
-
-                {/* Right side actions */}
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleShowHistory}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Historik
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Apple-style Footer med inspelningsknapp */}
+          <FooterWithRecording
+            isRecording={isRecording}
+            isPaused={false}
+            audioLevel={audioLevel}
+            onStartRecording={handleStartRecording}
+            onStopRecording={handleStopRecording}
+            onPauseRecording={() => {}}
+            onResumeRecording={() => {}}
+            onShowHistory={handleShowHistory}
+            onFileUpload={handleFileUpload}
+            disabled={isProcessingFile}
+          />
         </main>
-      </div>
+        </div>
 
-      {/* Historik Drawer */}
-      <HistoryDrawer
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        meetings={meetings}
-        onSelectMeeting={handleSelectMeeting}
-        onDeleteMeeting={deleteMeeting}
-        onEditMeetingTitle={editMeetingTitle}
-        onStartChat={handleStartChat}
-      />
+        {/* Historik Drawer */}
+        <HistoryDrawer
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          meetings={meetings}
+          onSelectMeeting={handleSelectMeeting}
+          onDeleteMeeting={deleteMeeting}
+          onEditMeetingTitle={editMeetingTitle}
+          onStartChat={handleStartChat}
+        />
       </SidebarProvider>
     </div>
   );
