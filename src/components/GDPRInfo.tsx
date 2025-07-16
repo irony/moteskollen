@@ -5,6 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Shield, Server, Smartphone, Cloud, HardDrive, Eye, X } from 'lucide-react';
 
+// Declare lov-mermaid as a valid JSX element
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'lov-mermaid': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
+    }
+  }
+}
+
 interface GDPRInfoProps {
   children: React.ReactNode;
 }
@@ -45,9 +54,8 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
             </CardHeader>
             <CardContent>
               <div className="bg-muted/30 p-4 rounded-lg">
-                <div dangerouslySetInnerHTML={{
-                  __html: `<lov-mermaid>
-graph TD
+                <lov-mermaid>
+{`graph TD
     A[📱 Din Enhet] --> B[🔒 Lokal Lagring]
     A --> C[🎤 Ljudinspelning]
     
@@ -60,9 +68,8 @@ graph TD
     G --> H[⬇️ Säker Retur]
     H --> B
     
-    B --> I[💾 Permanent Lagring<br/>Endast på din enhet]
-</lov-mermaid>`
-                }} />
+    B --> I[💾 Permanent Lagring<br/>Endast på din enhet]`}
+                </lov-mermaid>
               </div>
             </CardContent>
           </Card>
