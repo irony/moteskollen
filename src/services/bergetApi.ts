@@ -382,7 +382,7 @@ class BergetApiService {
   }
 
   // Transkribera ljudfil
-  async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
+  async transcribeAudio(audioBlob: Blob, retries: number = 2): Promise<TranscriptionResponse> {
     // Validate file upload
     const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
     const { securityService } = await import('../lib/security');
@@ -395,18 +395,30 @@ class BergetApiService {
     formData.append('file', audioBlob, 'audio.webm');
     formData.append('language', 'sv');
 
-    const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/audio/transcriptions`, {
-      method: 'POST',
-      body: formData
-    });
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/audio/transcriptions`, {
+          method: 'POST',
+          body: formData
+        });
 
-    try {
-      return await this.handleApiResponse<TranscriptionResponse>(response);
-    } catch (error: any) {
-      if (error.type === 'quota_exceeded') {
-        throw new Error(`${error.message}\n\nGå till https://berget.ai för att fylla på ditt konto.`);
+        return await this.handleApiResponse<TranscriptionResponse>(response);
+      } catch (error: any) {
+        console.log(`Transkribering försök ${attempt + 1}/${retries + 1} misslyckades:`, error.message);
+        
+        // If it's the last attempt or not a server error, throw
+        if (attempt === retries || !error.message.includes('Serverfel')) {
+          if (error.type === 'quota_exceeded') {
+            throw new Error(`${error.message}\n\nGå till https://berget.ai för att fylla på ditt konto.`);
+          }
+          throw new Error(`Transkribering misslyckades: ${error.message}`);
+        }
+        
+        // Wait before retry (exponential backoff)
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        console.log(`Väntar ${delay}ms innan nästa försök...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-      throw new Error(`Transkribering misslyckades: ${error.message}`);
     }
   }
 
