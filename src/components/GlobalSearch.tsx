@@ -130,7 +130,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         className="hidden md:flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors w-64 justify-start bg-muted/30 hover:bg-muted/50 border-border/50"
       >
         <Search className="w-4 h-4" />
-        <span className="flex-1 text-left">Sök eller skriv en fråga...</span>
+        <span className="flex-1 text-left">Sök...</span>
         <div className="flex items-center space-x-1">
           <Badge variant="outline" className="text-xs px-1.5 py-0.5">
             <CommandIcon className="w-3 h-3 mr-1" />
