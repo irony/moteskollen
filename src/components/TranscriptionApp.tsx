@@ -464,16 +464,17 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
         {/* Huvudinnehåll */}
         <main className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20 pb-24">
           {/* Header med användarikon */}
-          <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/30">
-            <div className="max-w-4xl mx-auto px-4 md:px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h1 className="text-xl md:text-2xl font-semibold tracking-tight text-foreground">Live Transkribering</h1>
-                  <p className="text-xs md:text-sm text-muted-foreground font-medium">Powered by Berget AI</p>
+          <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border/30">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center space-x-2">
+                  <Mic className="w-5 h-5 text-primary" />
+                  <h2 className="text-lg font-semibold">Live Transkribering</h2>
+                  <p className="text-xs text-muted-foreground font-medium">Powered by Berget AI</p>
                 </div>
                 
                 {/* Global sökruta och användarikon */}
-                <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
                   <GlobalSearch
                     onShowHistory={handleShowHistory}
                     onStartRecording={handleStartRecording}
@@ -482,20 +483,18 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
                     meetingsCount={meetings.length}
                   />
                   
-                  {/* Visuell indikator för antal möten (endast desktop) */}
-                  <div className="hidden lg:flex items-center space-x-2">
-                    {meetings.length > 0 && (
-                      <Badge variant="outline" className="text-xs">
-                        {meetings.length} möten
-                      </Badge>
-                    )}
-                  </div>
+                  {/* Visuell indikator för antal möten */}
+                  {meetings.length > 0 && (
+                    <Badge variant="secondary" className="rounded-full text-xs">
+                      {meetings.length}
+                    </Badge>
+                  )}
 
                   {/* Användarikon med dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="rounded-full">
-                        <User className="w-5 h-5" />
+                      <Button variant="ghost" size="sm" className="rounded-full w-8 h-8 p-0">
+                        <User className="w-4 h-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
