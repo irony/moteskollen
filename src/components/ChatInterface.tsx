@@ -144,16 +144,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <Card className={`apple-card border-0 h-[500px] flex flex-col ${className}`}>
-      <CardHeader className="pb-3 px-4">
+      <CardHeader className="pb-3 px-4 flex-shrink-0">
         <CardTitle className="flex items-center text-lg font-semibold">
           <MessageSquare className="w-5 h-5 mr-2 text-primary" />
           {meetingContext ? `Chat om ${meetingTitle || 'mötet'}` : 'AI-assistent'}
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 flex flex-col p-0">
-        <ScrollArea className="flex-1 h-full">
-          <div className="space-y-3 pb-3 px-4">
+      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+        <ScrollArea className="flex-1 h-full min-h-0">
+          <div className="space-y-3 pb-3 px-4 min-h-full">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -237,7 +237,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <div ref={messagesEndRef} />
         </ScrollArea>
         
-        <div className="p-4 pt-3 border-t border-border/30">
+        <div className="p-4 pt-3 border-t border-border/30 flex-shrink-0">
           <div className="flex space-x-2">
             <Input
               value={inputMessage}
