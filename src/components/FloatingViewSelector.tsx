@@ -17,7 +17,7 @@ export const FloatingViewSelector: React.FC<FloatingViewSelectorProps> = ({
 }) => {
   return (
     <div className={cn(
-      "fixed top-6 left-1/2 transform -translate-x-1/2 z-50",
+      "fixed left-1/2 transform -translate-x-1/2 z-50",
       "neu-card-float bg-background/95 backdrop-blur-md",
       "p-1 rounded-full border border-border/20",
       className
