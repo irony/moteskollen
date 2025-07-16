@@ -4,14 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { 
   Plus, 
   Search, 
   Calendar, 
   Clock, 
   FileText, 
-  Menu,
+  User,
+  Settings,
+  LogOut,
   Mic,
   Play,
   Trash2,
@@ -20,7 +21,7 @@ import {
   ChevronRight,
   Shield
 } from 'lucide-react';
-import { AppSidebar } from './AppSidebar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { GlobalSearch } from './GlobalSearch';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -128,43 +129,53 @@ export const MeetingList: React.FC<MeetingListProps> = ({
 
   return (
     <div className={cn("min-h-screen bg-background", className)}>
-      <SidebarProvider>
-        <div className="min-h-screen flex w-full">
-        {/* Sidebar */}
-          <AppSidebar onLogout={onLogout} />
-
+      <div className="min-h-screen w-full">
         {/* Huvudinnehåll */}
-        <main className="flex-1 min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20">
+        <main className="min-h-screen bg-background/50 bg-gradient-to-br from-background via-background to-muted/20">
           {/* Header */}
           <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border/30">
-            <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <SidebarTrigger className="p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                    <Menu className="w-5 h-5" />
-                  </SidebarTrigger>
-                  
+              <div className="max-w-6xl mx-auto px-4 md:px-6 py-4">
+                <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <h1 className="text-2xl md:text-4xl font-semibold tracking-tight text-foreground">Mina Möten</h1>
                     <p className="text-xs md:text-sm text-muted-foreground font-medium">
                       {meetings.length} möten sparade
                     </p>
                   </div>
-                </div>
-                
-                <div className="flex items-center space-x-4">
-                  <GlobalSearch
-                    onShowHistory={() => setIsHistoryOpen(true)}
-                    onStartRecording={() => {}} // Handled by floating selector
-                    onFileUpload={() => {}} // TODO: Implement file upload
-                    meetingContext=""
-                    meetingsCount={meetings.length}
-                  />
                   
-                  {/* Floating selector will handle new recording */}
+                  <div className="flex items-center space-x-4">
+                    <GlobalSearch
+                      onShowHistory={() => setIsHistoryOpen(true)}
+                      onStartRecording={() => {}} // Handled by floating selector
+                      onFileUpload={() => {}} // TODO: Implement file upload
+                      meetingContext=""
+                      meetingsCount={meetings.length}
+                    />
+                    
+                    {/* User menu */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="p-2">
+                          <User className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem disabled>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Inställningar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={onLogout}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <LogOut className="w-4 h-4 mr-2" />
+                          Logga ut
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
-            </div>
           </header>
 
           <div className="max-w-6xl mx-auto p-4 md:p-6 space-y-6">
@@ -300,7 +311,6 @@ export const MeetingList: React.FC<MeetingListProps> = ({
           </div>
         </main>
       </div>
-      </SidebarProvider>
     </div>
   );
 };
