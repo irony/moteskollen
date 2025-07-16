@@ -32,6 +32,27 @@ interface MeetingAnalysisResponse {
   confidence: number;
 }
 
+interface UsageResponse {
+  balance: number;
+  usage: {
+    total_cost: number;
+    total_tokens: number;
+    requests: number;
+  };
+  recent_usage?: {
+    date: string;
+    cost: number;
+    tokens: number;
+    requests: number;
+  }[];
+}
+
+interface ApiError {
+  message: string;
+  type: 'quota_exceeded' | 'invalid_api_key' | 'server_error' | 'unknown';
+  code?: string;
+}
+
 class BergetApiService {
   private baseUrl = 'https://api.berget.ai';
   private apiKey: string | null = null;
@@ -140,6 +161,70 @@ class BergetApiService {
     });
   }
 
+  // Hämta användningsstatistik och saldo
+  async getUsage(): Promise<UsageResponse> {
+    if (!this.apiKey) {
+      throw new Error('API-nyckel saknas');
+    }
+
+    const response = await fetch(`${this.baseUrl}/v1/usage`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${this.apiKey}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const error = await this.parseApiError(response);
+      throw error;
+    }
+
+    return response.json();
+  }
+
+  // Analysera API-fel och returnera strukturerat fel
+  private async parseApiError(response: Response): Promise<ApiError> {
+    let errorData: any = {};
+    
+    try {
+      const text = await response.text();
+      errorData = JSON.parse(text);
+    } catch {
+      // Om JSON parsing misslyckas, använd bara status
+    }
+
+    let errorType: ApiError['type'] = 'unknown';
+    let message = errorData.error?.message || errorData.message || `HTTP ${response.status}`;
+
+    // Identifiera feltyp baserat på status och meddelande
+    if (response.status === 429 || message.toLowerCase().includes('quota') || message.toLowerCase().includes('limit')) {
+      errorType = 'quota_exceeded';
+      message = 'Du har nått din API-kvot. Vänligen fyll på ditt konto för att fortsätta.';
+    } else if (response.status === 401 || message.toLowerCase().includes('invalid') || message.toLowerCase().includes('unauthorized')) {
+      errorType = 'invalid_api_key';
+      message = 'API-nyckeln är ogiltig eller har gått ut. Vänligen logga in igen.';
+    } else if (response.status >= 500) {
+      errorType = 'server_error';
+      message = 'Serverfel. Vänligen försök igen om ett ögonblick.';
+    }
+
+    return {
+      message,
+      type: errorType,
+      code: errorData.error?.code || errorData.code
+    };
+  }
+
+  // Uppdaterad felhantering för alla API-anrop
+  private async handleApiResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      const error = await this.parseApiError(response);
+      throw error;
+    }
+    return response.json();
+  }
+
   // Transkribera ljudfil
   async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
     if (!this.apiKey) {
@@ -166,12 +251,14 @@ class BergetApiService {
       body: formData
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Transkribering misslyckades: ${response.status} - ${errorText}`);
+    try {
+      return await this.handleApiResponse<TranscriptionResponse>(response);
+    } catch (error: any) {
+      if (error.type === 'quota_exceeded') {
+        throw new Error(`${error.message}\n\nGå till https://berget.ai för att fylla på ditt konto.`);
+      }
+      throw new Error(`Transkribering misslyckades: ${error.message}`);
     }
-
-    return response.json();
   }
 
   // OCR för dokument
@@ -371,20 +458,23 @@ class BergetApiService {
       })
     });
 
-    if (!response.ok) {
-      throw new Error('Summering misslyckades');
+    try {
+      const result = await this.handleApiResponse<any>(response);
+      const summary = result.choices[0].message.content;
+
+      // Extrahera handlingsområden ur svaret
+      const actionItems = this.extractActionItems(summary);
+
+      return {
+        summary,
+        action_items: actionItems
+      };
+    } catch (error: any) {
+      if (error.type === 'quota_exceeded') {
+        throw new Error(`${error.message}\n\nGå till https://berget.ai för att fylla på ditt konto.`);
+      }
+      throw new Error(`Summering misslyckades: ${error.message}`);
     }
-
-    const result = await response.json();
-    const summary = result.choices[0].message.content;
-
-    // Extrahera handlingsområden ur svaret
-    const actionItems = this.extractActionItems(summary);
-
-    return {
-      summary,
-      action_items: actionItems
-    };
   }
 
   // Generera text med AI

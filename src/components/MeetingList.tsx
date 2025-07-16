@@ -29,11 +29,13 @@ import {
   Brain,
   Loader2,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  CreditCard
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { GlobalSearch } from './GlobalSearch';
 import { ChatInterface } from './ChatInterface';
+import { UsageDisplay } from './UsageDisplay';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { bergetApi } from '@/services/bergetApi';
@@ -72,6 +74,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   const [customPrompt, setCustomPrompt] = useState('');
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [editedTitle, setEditedTitle] = useState('');
+  const [showUsage, setShowUsage] = useState(false);
   const { toast } = useToast();
 
   // Ladda möten från localStorage
@@ -286,6 +289,10 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setShowUsage(true)}>
+                          <CreditCard className="w-4 h-4 mr-2" />
+                          Användning & Kostnad
+                        </DropdownMenuItem>
                         <DropdownMenuItem disabled>
                           <Settings className="w-4 h-4 mr-2" />
                           Inställningar
@@ -575,6 +582,12 @@ export const MeetingList: React.FC<MeetingListProps> = ({
           </div>
         </main>
       </div>
+      
+      {/* Usage Display Modal */}
+      <UsageDisplay 
+        isVisible={showUsage}
+        onClose={() => setShowUsage(false)}
+      />
     </div>
   );
 };
