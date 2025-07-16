@@ -546,8 +546,15 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
           meetings={meetings}
           onSelectMeeting={handleSelectMeeting}
           onDeleteMeeting={deleteMeeting}
-          onEditMeetingTitle={editMeetingTitle}
-          onStartChat={handleStartChat}
+          onUpdateMeeting={(meeting) => {
+            const updatedMeetings = meetings.map(m => m.id === meeting.id ? meeting : m);
+            setMeetings(updatedMeetings);
+            localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+          }}
+          onStartRecording={() => {
+            setIsHistoryOpen(false);
+            handleStartRecording();
+          }}
         />
       </div>
     </div>

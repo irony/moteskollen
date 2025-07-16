@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { format, isToday, isYesterday, startOfDay, isSameDay } from 'date-fns';
+import { sv } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   X, 
@@ -13,11 +15,11 @@ import {
   Trash2,
   Edit3,
   MessageSquare,
-  Play
+  Play,
+  Circle
 } from 'lucide-react';
 import { AppHeader } from './AppHeader';
 import { formatDistance } from 'date-fns';
-import { sv } from 'date-fns/locale';
 
 interface Meeting {
   id: string;
@@ -37,18 +39,18 @@ interface HistoryDrawerProps {
   meetings: Meeting[];
   onSelectMeeting: (meeting: Meeting) => void;
   onDeleteMeeting: (meetingId: string) => void;
-  onEditMeetingTitle: (meetingId: string, newTitle: string) => void;
-  onStartChat: (meeting: Meeting) => void;
+  onUpdateMeeting: (meeting: Meeting) => void;
+  onStartRecording?: () => void; // Ny prop för att starta inspelning
 }
 
-export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
-  isOpen,
-  onClose,
-  meetings,
-  onSelectMeeting,
-  onDeleteMeeting,
-  onEditMeetingTitle,
-  onStartChat
+export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({ 
+  isOpen, 
+  onClose, 
+  meetings, 
+  onSelectMeeting, 
+  onDeleteMeeting, 
+  onUpdateMeeting,
+  onStartRecording 
 }) => {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editTitle, setEditTitle] = React.useState('');
@@ -60,7 +62,10 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 
   const handleEditSave = (meetingId: string) => {
     if (editTitle.trim()) {
-      onEditMeetingTitle(meetingId, editTitle.trim());
+      const meeting = meetings.find(m => m.id === meetingId);
+      if (meeting) {
+        onUpdateMeeting({ ...meeting, title: editTitle.trim() });
+      }
     }
     setEditingId(null);
     setEditTitle('');
@@ -116,6 +121,39 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
     return dateB - dateA; // Senaste mötet först
   });
 
+  // Gruppera möten per datum
+  const groupMeetingsByDate = (meetings: Meeting[]) => {
+    const groups: { [key: string]: { label: string; meetings: Meeting[] } } = {};
+    
+    meetings.forEach(meeting => {
+      const meetingDate = new Date(meeting.date);
+      const dateKey = format(startOfDay(meetingDate), 'yyyy-MM-dd');
+      
+      let label: string;
+      if (isToday(meetingDate)) {
+        label = 'Idag';
+      } else if (isYesterday(meetingDate)) {
+        label = 'Igår';
+      } else {
+        label = format(meetingDate, 'yyyy-MM-dd', { locale: sv });
+      }
+      
+      if (!groups[dateKey]) {
+        groups[dateKey] = { label, meetings: [] };
+      }
+      groups[dateKey].meetings.push(meeting);
+    });
+    
+    return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
+  };
+
+  const groupedMeetings = groupMeetingsByDate(sortedMeetings);
+
+  const handleStartRecordingAndClose = () => {
+    onClose();
+    onStartRecording?.();
+  };
+
   return (
     <>
       {/* Backdrop */}
@@ -141,9 +179,23 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
             badge={{ text: meetings.length }}
             onClose={onClose}
           />
+          
+          {/* Inspelningsknapp */}
+          {onStartRecording && (
+            <div className="px-4 pb-4">
+              <Button 
+                onClick={handleStartRecordingAndClose}
+                className="w-full bg-red-500 hover:bg-red-600 text-white"
+                size="lg"
+              >
+                <Circle className="w-4 h-4 mr-2 fill-current" />
+                Starta ny inspelning
+              </Button>
+            </div>
+          )}
 
           {/* Content */}
-          <div className="p-4 overflow-y-auto max-h-[calc(70vh-80px)]">
+          <div className="p-4 overflow-y-auto max-h-[calc(70vh-140px)]">
             {sortedMeetings.length === 0 ? (
               <div className="text-center py-12">
                 <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -153,8 +205,21 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {sortedMeetings.map((meeting) => (
+              <div className="space-y-6">
+                {groupedMeetings.map(([dateKey, group]) => (
+                  <div key={dateKey}>
+                    {/* Datumavgränsare */}
+                    <div className="flex items-center mb-4">
+                      <div className="flex-1 h-px bg-border"></div>
+                      <div className="px-4 text-sm font-medium text-muted-foreground bg-background">
+                        {group.label}
+                      </div>
+                      <div className="flex-1 h-px bg-border"></div>
+                    </div>
+                    
+                    {/* Möten för detta datum */}
+                    <div className="space-y-3">
+                      {group.meetings.map((meeting) => (
                   <Card key={meeting.id} className="hover:shadow-md transition-shadow">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
@@ -232,7 +297,7 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => onStartChat(meeting)}
+                              onClick={() => onSelectMeeting(meeting)}
                               className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             >
                               <MessageSquare className="w-4 h-4" />
@@ -268,12 +333,15 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
                       </CardContent>
                     )}
                   </Card>
-                ))}
-              </div>
-            )}
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </>
-  );
-};
+      </>
+    );
+  };
