@@ -516,7 +516,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
           {/* Live transkribering med central caption och timeline - visas bara när inspelning pågår */}
           <div className="relative">
-            {isRecording && (
+            {isRecording ? (
               <HybridTranscription 
                 segments={segments}
                 audioLevel={audioLevel}
@@ -524,6 +524,16 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
               />
+            ) : (
+              <div className="max-w-4xl mx-auto px-4 md:px-6 py-8">
+                <div className="text-center text-muted-foreground">
+                  <div className="mb-4">
+                    <FileText className="w-16 h-16 mx-auto text-muted-foreground/50" />
+                  </div>
+                  <p className="text-lg">Protokollet kommer visas här</p>
+                  <p className="text-sm mt-2">Starta en inspelning eller ladda upp en fil för att komma igång</p>
+                </div>
+              </div>
             )}
 
             {/* Error display */}

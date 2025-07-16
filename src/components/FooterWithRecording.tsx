@@ -72,28 +72,18 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
             
             {/* Huvudknapp */}
             <Button
-              onClick={
-                isRecording 
-                  ? (isPaused ? onResumeRecording : onPauseRecording)
-                  : onStartRecording
-              }
+              onClick={isRecording ? onStopRecording : onStartRecording}
               disabled={disabled}
               className={`
                 relative z-10 w-16 h-16 rounded-full transition-all duration-300 shadow-lg
-                ${isRecording && !isPaused
+                ${isRecording
                   ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25 shadow-2xl' 
-                  : isRecording && isPaused
-                  ? 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-500/25'
                   : 'bg-primary hover:bg-primary/90 shadow-primary/25'
                 }
               `}
             >
               {isRecording ? (
-                isPaused ? (
-                  <Mic className="w-6 h-6 text-white" />
-                ) : (
-                  <div className="w-4 h-4 bg-white rounded-sm" />
-                )
+                <Square className="w-6 h-6 text-white" fill="currentColor" />
               ) : (
                 <Mic className="w-6 h-6 text-white" />
               )}
@@ -118,20 +108,6 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
             )}
           </div>
 
-          {/* Stoppa-knapp (alltid synlig under inspelning) */}
-          {isRecording && (
-            <div className="absolute left-20">
-              <Button
-                onClick={onStopRecording}
-                variant="destructive"
-                size="sm"
-                className="rounded-xl shadow-lg border-0"
-              >
-                <Square className="w-4 h-4 mr-2" fill="currentColor" />
-                Stoppa
-              </Button>
-            </div>
-          )}
 
           {/* Höger: Status och GDPR */}
           <div className="absolute right-0 flex items-center space-x-3">

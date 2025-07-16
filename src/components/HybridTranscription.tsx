@@ -54,8 +54,8 @@ export const HybridTranscription: React.FC<HybridTranscriptionProps> = ({
 
   return (
     <div className="relative h-full">
-      {/* Central caption overlay */}
-      <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-4xl px-4">
+      {/* Caption overlay - top when recording */}
+      <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-4xl px-4">
         <div className="bg-black/90 backdrop-blur-lg rounded-lg border border-gray-600/50 shadow-2xl">
           <div className="px-6 py-4 min-h-[120px] flex flex-col justify-center">
             {!isActive && segments.length === 0 ? (
