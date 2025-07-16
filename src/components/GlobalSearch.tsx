@@ -58,8 +58,11 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
-    // Aktivera chat om användaren börjar skriva
-    if (value.length > 0 && !showChat) {
+    // Vänta med att aktivera chat tills användaren trycker Enter
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
       setShowChat(true);
     }
   };
@@ -160,6 +163,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                     placeholder="Sök eller skriv en fråga..."
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
+                    onKeyDown={handleKeyPress}
                     className="border-0 bg-transparent focus-visible:ring-0 text-lg"
                     autoFocus
                   />
@@ -252,6 +256,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
                 <ChatInterface 
                   meetingContext={meetingContext}
                   className="h-full"
+                  initialMessage={searchQuery.trim()}
                 />
               </div>
             </div>

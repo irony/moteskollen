@@ -21,12 +21,14 @@ interface ChatInterfaceProps {
   meetingContext?: string;
   meetingTitle?: string;
   className?: string;
+  initialMessage?: string;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   meetingContext,
   meetingTitle,
-  className = ""
+  className = "",
+  initialMessage
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -53,7 +55,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       timestamp: new Date()
     };
     setMessages([welcomeMessage]);
-  }, [meetingContext, meetingTitle]);
+
+    // Skicka initialt meddelande om det finns
+    if (initialMessage && initialMessage.trim()) {
+      setTimeout(() => {
+        setInputMessage(initialMessage);
+        // Auto-skicka efter en kort delay
+        setTimeout(() => {
+          const userMessage: ChatMessage = {
+            id: (Date.now() + 1).toString(),
+            role: 'user',
+            content: initialMessage.trim(),
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, userMessage]);
+          setInputMessage('');
+          setIsLoading(true);
+
+          bergetApi.chatWithMeetings(initialMessage.trim(), meetingContext)
+            .then(response => {
+              const assistantMessage: ChatMessage = {
+                id: (Date.now() + 2).toString(),
+                role: 'assistant',
+                content: securityService.sanitizeHtml(response),
+                timestamp: new Date()
+              };
+              setMessages(prev => [...prev, assistantMessage]);
+            })
+            .catch(error => {
+              console.error('Chat error:', error);
+            })
+            .finally(() => {
+              setIsLoading(false);
+            });
+        }, 500);
+      }, 100);
+    }
+  }, [meetingContext, meetingTitle, initialMessage]);
 
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -106,7 +144,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <Card className={`apple-card border-0 h-[500px] flex flex-col ${className}`}>
-      <CardHeader className="pb-4">
+      <CardHeader className="pb-3 px-4">
         <CardTitle className="flex items-center text-lg font-semibold">
           <MessageSquare className="w-5 h-5 mr-2 text-primary" />
           {meetingContext ? `Chat om ${meetingTitle || 'mötet'}` : 'AI-assistent'}
@@ -115,7 +153,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       
       <CardContent className="flex-1 flex flex-col p-0">
         <ScrollArea className="flex-1 h-full">
-          <div className="space-y-4 pb-4 px-6">
+          <div className="space-y-3 pb-3 px-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -199,7 +237,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <div ref={messagesEndRef} />
         </ScrollArea>
         
-        <div className="p-6 pt-4 border-t border-border/30">
+        <div className="p-4 pt-3 border-t border-border/30">
           <div className="flex space-x-2">
             <Input
               value={inputMessage}

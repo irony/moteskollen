@@ -22,7 +22,7 @@ export const LiveTranscription: React.FC<LiveTranscriptionProps> = ({
   onStopRecording
 }) => {
   return (
-    <Card className="shadow-elegant min-h-96">
+    <Card className="shadow-elegant min-h-96 relative">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">Live Syntolkning</CardTitle>
@@ -52,6 +52,24 @@ export const LiveTranscription: React.FC<LiveTranscriptionProps> = ({
             )}
           </div>
         </div>
+
+        {/* Neumorphic REC button i mitten */}
+        {isActive && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+            <button
+              onClick={onStopRecording}
+              className="w-20 h-20 bg-gradient-to-br from-background to-muted/50 
+                         shadow-[inset_-8px_-8px_16px_rgba(255,255,255,0.1),inset_8px_8px_16px_rgba(0,0,0,0.1)]
+                         hover:shadow-[inset_-6px_-6px_12px_rgba(255,255,255,0.1),inset_6px_6px_12px_rgba(0,0,0,0.1)]
+                         rounded-full flex flex-col items-center justify-center
+                         transition-all duration-300 active:scale-95 group"
+              title="Klicka för att stoppa inspelning"
+            >
+              <div className="w-3 h-3 bg-destructive rounded-full mb-1 animate-pulse" />
+              <span className="text-xs font-bold text-foreground/70 group-hover:text-foreground">REC</span>
+            </button>
+          </div>
+        )}
         
         {/* Ljudnivå-indikator */}
         {isActive && (
