@@ -22,7 +22,6 @@ import {
   LogOut,
   Shield,
   Mic,
-  Square,
   Users,
   Phone,
   GraduationCap,
@@ -38,7 +37,8 @@ import {
   Brain,
   Upload,
   Paperclip,
-  Menu
+  Menu,
+  Square
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
