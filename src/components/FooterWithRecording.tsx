@@ -42,96 +42,85 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-md border-t border-border/30 safe-area-pb">
-      <div className="max-w-4xl mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          {/* Vänster: Historik */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onShowHistory}
-            className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors rounded-xl"
-          >
-            <History className="w-4 h-4" />
-            <span className="hidden sm:inline">Historik</span>
-          </Button>
-
-          {/* Mitten: Inspelningsknapp */}
-          <div className="flex items-center space-x-4">
-            {/* Uppladdningsknapp */}
+      <div className="max-w-4xl mx-auto px-6 py-2">
+        <div className="flex items-center justify-center relative">
+          {/* Vänster: Uppladdning */}
+          <div className="absolute left-0 flex items-center">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center space-x-2 text-muted-foreground hover:text-foreground transition-colors rounded-xl"
+              className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-xl w-10 h-10"
             >
               <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Ladda upp</span>
+            </Button>
+          </div>
+
+          {/* Mitten: Inspelningsknapp (kan gå över kanten) */}
+          <div className="relative">
+            {/* Pulse-effekt när inspelning pågår */}
+            {isRecording && !isPaused && (
+              <div 
+                className="absolute inset-0 rounded-full bg-red-500/20 animate-ping"
+                style={{ 
+                  transform: `scale(${pulseScale})`,
+                  opacity: pulseOpacity,
+                  animationDuration: '1.5s'
+                }}
+              />
+            )}
+            
+            {/* Huvudknapp */}
+            <Button
+              onClick={
+                isRecording 
+                  ? (isPaused ? onResumeRecording : onPauseRecording)
+                  : onStartRecording
+              }
+              disabled={disabled}
+              className={`
+                relative z-10 w-16 h-16 rounded-full transition-all duration-300 shadow-lg
+                ${isRecording && !isPaused
+                  ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25 shadow-2xl' 
+                  : isRecording && isPaused
+                  ? 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-500/25'
+                  : 'bg-primary hover:bg-primary/90 shadow-primary/25'
+                }
+              `}
+            >
+              {isRecording ? (
+                isPaused ? (
+                  <Mic className="w-6 h-6 text-white" />
+                ) : (
+                  <div className="w-4 h-4 bg-white rounded-sm" />
+                )
+              ) : (
+                <Mic className="w-6 h-6 text-white" />
+              )}
             </Button>
 
-            {/* Huvudinspelningsknapp */}
-            <div className="relative">
-              {/* Pulse-effekt när inspelning pågår */}
-              {isRecording && !isPaused && (
-                <div 
-                  className="absolute inset-0 rounded-full bg-red-500/20 animate-ping"
-                  style={{ 
-                    transform: `scale(${pulseScale})`,
-                    opacity: pulseOpacity,
-                    animationDuration: '1.5s'
-                  }}
-                />
-              )}
-              
-              {/* Huvudknapp */}
-              <Button
-                onClick={
-                  isRecording 
-                    ? (isPaused ? onResumeRecording : onPauseRecording)
-                    : onStartRecording
-                }
-                disabled={disabled}
-                className={`
-                  relative z-10 w-16 h-16 rounded-full transition-all duration-300 shadow-lg
-                  ${isRecording && !isPaused
-                    ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25 shadow-2xl' 
-                    : isRecording && isPaused
-                    ? 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-500/25'
-                    : 'bg-primary hover:bg-primary/90 shadow-primary/25'
-                  }
-                `}
-              >
-                {isRecording ? (
-                  isPaused ? (
-                    <Mic className="w-6 h-6 text-white" />
-                  ) : (
-                    <div className="w-4 h-4 bg-white rounded-sm" />
-                  )
-                ) : (
-                  <Mic className="w-6 h-6 text-white" />
-                )}
-              </Button>
-
-              {/* Lydnivå-visualisering */}
-              {isRecording && !isPaused && (
-                <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                  <div className="flex space-x-1">
-                    {[...Array(3)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="w-1 bg-red-500 rounded-full transition-all duration-150"
-                        style={{
-                          height: `${4 + (audioLevel * 8)}px`,
-                          opacity: audioLevel > (i * 0.33) ? 1 : 0.3
-                        }}
-                      />
-                    ))}
-                  </div>
+            {/* Lydnivå-visualisering */}
+            {isRecording && !isPaused && (
+              <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+                <div className="flex space-x-1">
+                  {[...Array(3)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-red-500 rounded-full transition-all duration-150"
+                      style={{
+                        height: `${4 + (audioLevel * 8)}px`,
+                        opacity: audioLevel > (i * 0.33) ? 1 : 0.3
+                      }}
+                    />
+                  ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
 
-            {/* Stoppa-knapp (alltid synlig under inspelning) */}
-            {isRecording && (
+          {/* Stoppa-knapp (alltid synlig under inspelning) */}
+          {isRecording && (
+            <div className="absolute left-20">
               <Button
                 onClick={onStopRecording}
                 variant="destructive"
@@ -141,11 +130,11 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
                 <Square className="w-4 h-4 mr-2" fill="currentColor" />
                 Stoppa
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Höger: Status och GDPR */}
-          <div className="flex items-center space-x-3">
+          <div className="absolute right-0 flex items-center space-x-3">
             {/* GDPR badge */}
             <GDPRInfo>
               <div className="flex items-center space-x-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
