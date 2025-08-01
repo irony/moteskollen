@@ -208,20 +208,35 @@ export class SecurityService {
       'audio/m4a',
       'audio/aac',
       'audio/ogg',
-      'audio/x-m4a'
+      'audio/x-m4a',
+      'audio/mp4a-latm',
+      'audio/x-mp4',
+      'video/mp4', // M4A filer rapporteras ibland som video/mp4
+      'application/octet-stream' // Fallback för okända binära filer
+    ];
+
+    const allowedExtensions = [
+      '.pdf', '.docx', '.doc', '.txt', '.jpg', '.jpeg', '.png',
+      '.webm', '.wav', '.mp3', '.mp4', '.m4a', '.aac', '.ogg'
     ];
 
     if (file.size > maxSize) {
       return { valid: false, error: 'Filen är för stor. Maximal storlek är 100MB.' };
     }
 
-    if (!allowedTypes.includes(file.type)) {
-      return { valid: false, error: 'Filtypen stöds inte.' };
+    const fileName = file.name.toLowerCase();
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+    
+    // Kontrollera MIME-typ först, sedan filnamnstillägg som backup
+    const validMimeType = allowedTypes.includes(file.type);
+    const validExtension = allowedExtensions.includes(fileExtension);
+    
+    if (!validMimeType && !validExtension) {
+      return { valid: false, error: `Filtypen stöds inte. MIME-typ: ${file.type}, Tillägg: ${fileExtension}` };
     }
 
     // Check for suspicious file names
     const suspiciousPatterns = ['.exe', '.bat', '.cmd', '.scr', '.js', '.vbs'];
-    const fileName = file.name.toLowerCase();
     
     if (suspiciousPatterns.some(pattern => fileName.includes(pattern))) {
       return { valid: false, error: 'Filnamnet innehåller otillåtna tecken.' };

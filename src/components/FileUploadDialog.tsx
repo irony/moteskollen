@@ -43,7 +43,10 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
 
   const supportedFormats = [
     'audio/mp3', 'audio/mpeg', 'audio/wav', 'audio/m4a', 
-    'audio/aac', 'audio/ogg', 'audio/webm', 'audio/mp4'
+    'audio/aac', 'audio/ogg', 'audio/webm', 'audio/mp4',
+    'audio/x-m4a', 'audio/mp4a-latm', 'audio/x-mp4',
+    'video/mp4', // M4A filer rapporteras ibland som video/mp4
+    'application/octet-stream' // Fallback för okända binära filer
   ];
 
   const estimateProcessingTime = (fileSize: number): number => {
