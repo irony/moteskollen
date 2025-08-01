@@ -122,8 +122,6 @@ const createSegmentStream = (bergetTranscribe: (segment: AudioSegment) => Observ
             isProcessing: false
           });
         }),
-        // Lägg till delay för att säkerställa att processing-segmentet hinner visas först
-        delay(100)
       );
       
       return merge(

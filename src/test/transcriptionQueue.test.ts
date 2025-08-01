@@ -2,15 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TranscriptionQueue, AudioSegment, BergetApiInterface } from '../services/transcriptionQueue';
 import { firstValueFrom, filter, take, timeout } from 'rxjs';
 
-// Mock Berget API
+// Mock Berget API - helt synkron för snabba tester
 class MockBergetApi implements BergetApiInterface {
   private responses: Map<string, { text: string }> = new Map();
-  private delays: Map<string, number> = new Map();
   private errors: Map<string, Error> = new Map();
 
-  setResponse(segmentId: string, response: { text: string }, delay = 0): void {
+  setResponse(segmentId: string, response: { text: string }): void {
     this.responses.set(segmentId, response);
-    this.delays.set(segmentId, delay);
   }
 
   setError(segmentId: string, error: Error): void {
@@ -25,17 +23,12 @@ class MockBergetApi implements BergetApiInterface {
       throw this.errors.get(segmentId)!;
     }
 
-    const delay = this.delays.get(segmentId) || 0;
-    if (delay > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    return this.responses.get(segmentId) || { text: 'Mock transcription' };
+    // Returnera direkt utan delay - helt synkron mock
+    return Promise.resolve(this.responses.get(segmentId) || { text: 'Mock transcription' });
   }
 
   clear(): void {
     this.responses.clear();
-    this.delays.clear();
     this.errors.clear();
   }
 }
@@ -188,7 +181,6 @@ describe('TranscriptionQueue', () => {
             state.segments.some(s => (s.retryCount || 0) > 0)
           ),
           take(1),
-          timeout(8000) // Öka timeout för felhantering
         )
       );
 
@@ -201,7 +193,6 @@ describe('TranscriptionQueue', () => {
       expect(failedSegment!.text).toBe('Ursprunglig text');
       expect(failedSegment!.source).toBe('webspeech');
       expect(failedSegment!.retryCount).toBeGreaterThanOrEqual(1);
-    }, 10000); // Öka test timeout till 10 sekunder
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
       const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
@@ -226,7 +217,6 @@ describe('TranscriptionQueue', () => {
             state.segments.some(s => (s.retryCount || 0) > 0)
           ),
           take(1),
-          timeout(8000)
         )
       );
 
@@ -245,7 +235,6 @@ describe('TranscriptionQueue', () => {
             state.segments.some(s => s.source === 'berget' && s.text === 'Framgångsrik retry')
           ),
           take(1),
-          timeout(8000)
         )
       );
 
@@ -257,7 +246,6 @@ describe('TranscriptionQueue', () => {
       expect(retrySegment).toBeDefined();
       expect(retrySegment!.text).toBe('Framgångsrik retry');
       expect(retrySegment!.source).toBe('berget');
-    }, 15000); // Öka test timeout till 15 sekunder för retry-test
   });
 
   describe('Fönsterhantering', () => {
