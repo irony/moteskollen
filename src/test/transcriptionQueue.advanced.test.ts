@@ -162,12 +162,12 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       }, 100);
 
       // Avancera timers för att trigga setTimeout
-      vi.advanceTimersByTime(150);
+      vi.advanceTimersByTime(200);
 
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => state.segments.length >= 2),
-          timeout(1000),
+          timeout(500),
           take(1)
         )
       );
@@ -209,7 +209,7 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       }, 200);
 
       // Avancera timers för att trigga båda segmenten
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
 
       // Vänta på att båda segmenten ska vara klara
       const finalState = await firstValueFrom(
@@ -217,7 +217,7 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
           filter(state => 
             state.segments.filter(s => s.source === 'berget').length >= 2
           ),
-          timeout(1000),
+          timeout(500),
           take(1)
         )
       );
@@ -255,12 +255,15 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         });
       }, 100);
 
+      // Avancera timers för att trigga async operationer
+      vi.advanceTimersByTime(2000);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => 
             state.segments.filter(s => s.source === 'berget').length >= 2
           ),
-          timeout(3000),
+          timeout(500),
           take(1)
         )
       );
@@ -320,12 +323,15 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       // Använd processFullMeetingTranscription istället för addSegment
       queue.processFullMeetingTranscription(fullMeetingBlob, 'test-meeting');
 
+      // Avancera timers för att trigga fullständig bearbetning
+      vi.advanceTimersByTime(1000);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => 
             state.segments.some(s => s.text.includes('Fullständigt mötesprotokoll'))
           ),
-          timeout(3000),
+          timeout(500),
           take(1)
         )
       );
@@ -361,12 +367,15 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       // Andra retry
       setTimeout(() => queue.retrySegment('poor-quality'), 1200);
 
+      // Avancera timers för att trigga alla retries
+      vi.advanceTimersByTime(2000);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => 
             state.segments.some(s => s.text.includes('Äntligen fungerande'))
           ),
-          timeout(5000),
+          timeout(500),
           take(1)
         )
       );
@@ -404,10 +413,13 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         setTimeout(() => queue.addSegment(seg), i * 50);
       });
 
+      // Avancera timers för att trigga alla segment
+      vi.advanceTimersByTime(1000);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => state.segments.length >= 10),
-          timeout(5000),
+          timeout(500),
           take(1)
         )
       );
@@ -444,10 +456,13 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         });
       }, 100);
 
+      // Avancera timers för att trigga andra segmentet
+      vi.advanceTimersByTime(200);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => state.segments.length >= 2),
-          timeout(3000),
+          timeout(500),
           take(1)
         )
       );
@@ -478,12 +493,15 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       // Retry efter nätverksfel
       setTimeout(() => queue.retrySegment('network-issue'), 1000);
 
+      // Avancera timers för att trigga retry
+      vi.advanceTimersByTime(1500);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => 
             state.segments.some(s => s.text.includes('Framgångsrik efter'))
           ),
-          timeout(4000),
+          timeout(500),
           take(1)
         )
       );
