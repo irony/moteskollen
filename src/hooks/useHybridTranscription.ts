@@ -140,12 +140,14 @@ export const useHybridTranscription = (
         pendingSegmentId = null;
         currentInterimText = '';
         hasBeenSentToBerget = false;
-        currentSegmentChunksRef.current = [];
+        // VIKTIGT: Rensa inte currentSegmentChunksRef här - den behövs för nästa segment
 
       } else {
         // Interim resultat - bygg ihop texten progressivt
         if (!pendingSegmentId) {
           pendingSegmentId = Date.now().toString();
+          // Starta nytt segment - spara nuvarande chunks som bas
+          console.log('Startar nytt interim segment:', pendingSegmentId);
         }
 
         // Bygg ihop interim text progressivt
@@ -175,10 +177,14 @@ export const useHybridTranscription = (
         silenceTimerRef.current = setTimeout(() => {
           if (pendingSegmentId && currentInterimText.trim().length > 5 && !hasBeenSentToBerget) {
             console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId, 'Text:', currentInterimText.trim());
+            console.log('Chunks tillgängliga för segment:', currentSegmentChunksRef.current.length);
             
             // Spara audio-chunks för detta segment
             if (currentSegmentChunksRef.current.length > 0) {
               segmentAudioRef.current.set(pendingSegmentId, [...currentSegmentChunksRef.current]);
+              console.log('Sparade chunks för segment:', pendingSegmentId, 'Antal:', currentSegmentChunksRef.current.length);
+            } else {
+              console.log('VARNING: Inga chunks att spara för segment:', pendingSegmentId);
             }
 
             hasBeenSentToBerget = true; // Mark as sent to prevent duplicate sends
@@ -191,7 +197,17 @@ export const useHybridTranscription = (
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech') {
-        // Vanligt, behöver inte visa fel
+        // Vanligt, behöver inte visa fel - men starta om recognition
+        console.log('No speech detected, restarting recognition...');
+        setTimeout(() => {
+          if (recognitionRef.current && isRecording) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              console.log('Could not restart recognition:', e);
+            }
+          }
+        }, 1000);
         return;
       }
       
@@ -367,6 +383,7 @@ export const useHybridTranscription = (
           audioChunksRef.current.push(event.data);
           // Lägg till chunks till aktuellt segment också
           currentSegmentChunksRef.current.push(event.data);
+          console.log('Total chunks i currentSegment:', currentSegmentChunksRef.current.length);
         }
       };
 
