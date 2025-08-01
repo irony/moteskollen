@@ -43,18 +43,29 @@ interface UseHybridTranscriptionResult {
 }
 
 export const useHybridTranscription = (
-  onBergetTranscription?: (text: string) => void
+  onBergetTranscription?: (text: string) => void,
+  options?: {
+    maxWordsPerSegment?: number;
+    enableFullMeetingProcessing?: boolean;
+  }
 ): UseHybridTranscriptionResult => {
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
   const segmentStartTimeRef = useRef<number>(0);
   const recordingStartTimeRef = useRef<number>(0);
+  const fullMeetingAudioRef = useRef<Blob[]>([]);
 
-  // Använd den nya TranscriptionQueue
-  const transcriptionQueue = useTranscriptionQueue();
+  // Använd den nya TranscriptionQueue med options
+  const transcriptionQueue = useTranscriptionQueue({
+    maxWordsPerSegment: options?.maxWordsPerSegment || 12,
+    retryDelayMs: 1000
+  });
   
   // Använd AudioRecorder för ljudhantering
   const audioRecorder = useAudioRecorder((audioChunk) => {
+    // Spara för fullständig mötesbearbetning
+    fullMeetingAudioRef.current.push(audioChunk);
+    
     // När vi får en audio chunk, skapa ett segment och skicka till transcription queue
     const now = new Date();
     const audioTime = (now.getTime() - recordingStartTimeRef.current) / 1000;
@@ -68,7 +79,8 @@ export const useHybridTranscription = (
       audioEnd: audioTime,
       confidence: 0.5,
       source: 'webspeech',
-      audioData: audioChunk
+      audioData: audioChunk,
+      segmentType: 'live'
     });
     
     console.log('Audio chunk sent to TranscriptionQueue for Berget AI processing');
@@ -206,7 +218,21 @@ export const useHybridTranscription = (
 
     // Stoppa ljudinspelning
     await audioRecorder.stopRecording();
-  }, [audioRecorder]);
+
+    // Om fullständig mötesbearbetning är aktiverad, bearbeta hela mötet
+    if (options?.enableFullMeetingProcessing && fullMeetingAudioRef.current.length > 0) {
+      console.log('Processing full meeting audio...');
+      
+      // Kombinera alla audio chunks till en blob
+      const fullMeetingBlob = new Blob(fullMeetingAudioRef.current, { type: 'audio/webm' });
+      
+      // Skicka för fullständig bearbetning
+      transcriptionQueue.processFullMeeting(fullMeetingBlob, `meeting-${Date.now()}`);
+      
+      // Rensa audio chunks
+      fullMeetingAudioRef.current = [];
+    }
+  }, [audioRecorder, options?.enableFullMeetingProcessing, transcriptionQueue]);
 
   // Konvertera TranscriptionQueue segments till vårt format
   const segments: TranscriptionSegment[] = transcriptionQueue.state.segments.map(segment => ({
