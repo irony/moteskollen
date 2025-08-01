@@ -215,11 +215,11 @@ describe('TranscriptionQueue', () => {
 
       // Enklare test - bara kontrollera att segmentet finns
       const state = queue.getCurrentState();
-      const segment = state.segments.find(s => s.id === 'test-1');
+      const foundSegment = state.segments.find(s => s.id === 'test-1');
       
-      expect(segment).toBeDefined();
-      expect(segment!.text).toBe('Ursprunglig text');
-      expect(segment!.source).toBe('webspeech');
+      expect(foundSegment).toBeDefined();
+      expect(foundSegment!.text).toBe('Ursprunglig text');
+      expect(foundSegment!.source).toBe('webspeech');
     }, 1000);
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
