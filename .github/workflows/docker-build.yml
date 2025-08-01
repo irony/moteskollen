@@ -55,6 +55,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          NODE_ENV=production
 
     - name: Run security scan
       if: github.event_name != 'pull_request'

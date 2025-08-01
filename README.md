@@ -224,3 +224,59 @@ För att koppla en egen domän:
 3. Följ instruktionerna för DNS-konfiguration
 
 Läs mer: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+---
+
+## 🚀 Kubernetes & CI/CD Setup Prompt
+
+**För att lägga till komplett Docker + Kubernetes + GitHub Actions CI/CD till en Vite React TypeScript-app:**
+
+```
+Skapa följande filer för en Vite React TypeScript-app som ska deployas till Kubernetes:
+
+1. **Dockerfile** (multi-stage build):
+   - Stage 1: node:lts-alpine, npm ci, npm run build
+   - Stage 2: nginx:alpine, kopiera dist/ till /usr/share/nginx/html
+   - Exponera port 80
+
+2. **nginx.conf**:
+   - SPA routing (try_files $uri $uri/ /index.html)
+   - Säkerhetsheaders (X-Frame-Options, CSP, etc.)
+   - Gzip-komprimering
+   - Cache för statiska filer (1y)
+   - /health endpoint som returnerar "healthy"
+
+3. **.github/workflows/docker-build.yml**:
+   - Trigger: push till main/develop, tags v*, PR till main
+   - Multi-platform build (linux/amd64,linux/arm64)
+   - Push till ghcr.io med metadata-tags
+   - Trivy säkerhetsskanning
+   - Cache med GitHub Actions cache
+
+4. **k8s/namespace.yaml**: namespace "moteskollen"
+
+5. **k8s/deployment.yaml**:
+   - 1 replica, image: ghcr.io/REPO:latest
+   - Resources: 64Mi/50m request, 256Mi/200m limit
+   - Health checks på /health
+   - Port 80 named "http"
+
+6. **k8s/service.yaml**: ClusterIP service på port 80
+
+7. **k8s/ingress.yaml**:
+   - Host: moteskollen.berget.ai
+   - TLS med cert-manager (letsencrypt-prod)
+   - nginx.ingress.kubernetes.io annotations
+   - SSL redirect, 100m proxy-body-size
+
+8. **.dockerignore**: Exkludera node_modules, .git, k8s/, .github/, docs/, etc.
+
+Alla filer ska vara produktionsklara med säkerhet i fokus. Använd svenska kommentarer där det är lämpligt.
+```
+
+**Denna prompt ger dig en komplett CI/CD-pipeline som:**
+- Bygger Docker-images automatiskt vid kod-ändringar
+- Deployas till Kubernetes med TLS-certifikat
+- Har säkerhetsheaders och health checks
+- Stöder multi-platform builds
+- Inkluderar säkerhetsskanning
