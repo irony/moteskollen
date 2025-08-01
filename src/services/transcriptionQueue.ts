@@ -7,7 +7,8 @@ import {
   EMPTY,
   of,
   throwError,
-  from
+  from,
+  pipe
 } from 'rxjs';
 import { 
   map, 
@@ -59,22 +60,31 @@ const createRetryStrategy = (maxRetries: number = 2) =>
     }
   });
 
-// Ren funktion för att skapa Berget AI-anrop
+// Ren funktion för att skapa Berget AI-anrop med pipe-arkitektur
 const createBergetTranscription = (bergetApi: BergetApiInterface) => 
   (segment: AudioSegment): Observable<AudioSegment> => {
     if (!segment.audioData) {
       return throwError(() => new Error('Ingen audiodata tillgänglig'));
     }
 
-    return from(bergetApi.transcribeAudio(segment.audioData)).pipe(
-      map(result => ({
+    // Elegant pipe-baserad transcription pipeline
+    const transcribeWithBerget = pipe(
+      map((audio: Blob) => audio), // Konvertera till rätt format om nödvändigt
+      mergeMap((wav: Blob) => from(bergetApi.transcribeAudio(wav))),
+      createRetryStrategy(2),
+      map((result: { text: string }) => result.text),
+      map((text: string) => cleanBergetText(text))
+    );
+
+    return of(segment.audioData).pipe(
+      transcribeWithBerget,
+      map(cleanedText => ({
         ...segment,
-        text: cleanBergetText(result.text),
+        text: cleanedText,
         source: 'berget' as const,
         confidence: 0.95,
         isProcessing: false
-      })),
-      createRetryStrategy(2)
+      }))
     );
   };
 
