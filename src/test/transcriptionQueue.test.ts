@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TranscriptionQueue, AudioSegment, BergetApiInterface } from '../services/transcriptionQueue';
-import { firstValueFrom, take, timeout } from 'rxjs';
+import { firstValueFrom, take, timeout, skip } from 'rxjs';
 
 // Mock Berget API
 class MockBergetApi implements BergetApiInterface {
@@ -140,28 +140,23 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
+      // Använd RxJS-strömmen för att vänta på uppdateringar
+      const statePromise = firstValueFrom(
+        queue.getState$().pipe(
+          skip(1), // Hoppa över initial tom state
+          take(3), // Ta första 3 uppdateringar: initial segment, processing, berget result
+          timeout(5000)
+        )
+      );
+
       queue.addSegment(segment);
 
-      // Vänta på att bearbetning ska slutföras med flera försök
-      let finalState;
-      let attempts = 0;
-      const maxAttempts = 10;
+      const finalState = await statePromise;
 
-      while (attempts < maxAttempts) {
-        const state = queue.getCurrentState();
-        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
-          finalState = state;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-      }
-
-      expect(finalState).toBeDefined();
-      expect(finalState!.segments).toHaveLength(1);
-      expect(finalState!.segments[0].source).toBe('berget');
-      expect(finalState!.segments[0].text).toBe('Förbättrad text från Berget');
-      expect(finalState!.segments[0].confidence).toBe(0.95);
+      expect(finalState.segments).toHaveLength(1);
+      expect(finalState.segments[0].source).toBe('berget');
+      expect(finalState.segments[0].text).toBe('Förbättrad text från Berget');
+      expect(finalState.segments[0].confidence).toBe(0.95);
     });
 
     it('ska hantera Berget API-fel gracefully', async () => {
@@ -177,52 +172,27 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
+      // Använd RxJS för att lyssna på alla tillståndsändringar
+      const states: any[] = [];
+      const subscription = queue.getState$().subscribe(state => {
+        states.push(state);
+      });
+
       queue.addSegment(segment);
 
-      // Vänta på att segmentet ska läggas till och sedan hanteras
-      let finalState;
-      let attempts = 0;
-      const maxAttempts = 30; // Öka antalet försök
-      let segmentFound = false;
+      // Vänta på att fel ska hanteras via RxJS-strömmen
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      while (attempts < maxAttempts) {
-        const state = queue.getCurrentState();
-        console.log(`Attempt ${attempts + 1}: segments length = ${state.segments.length}`);
-        
-        if (state.segments.length > 0) {
-          segmentFound = true;
-          console.log(`Segment found: ${JSON.stringify(state.segments[0])}`);
-          
-          // Vänta lite längre för att se om retry count uppdateras
-          await new Promise(resolve => setTimeout(resolve, 500));
-          finalState = queue.getCurrentState();
-          
-          // Om vi har ett segment med retry count, avbryt
-          if (finalState.segments[0].retryCount && finalState.segments[0].retryCount > 0) {
-            break;
-          }
-          
-          // Annars fortsätt vänta lite till
-          if (attempts > 20) { // Efter 20 försök, acceptera vad vi har
-            break;
-          }
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-      }
+      subscription.unsubscribe();
 
-      console.log(`Final state after ${attempts} attempts:`, finalState);
-      console.log(`Segment found: ${segmentFound}`);
-
-      expect(finalState).toBeDefined();
-      expect(finalState!.segments).toHaveLength(1);
-      expect(finalState!.segments[0].text).toBe('Ursprunglig text');
-      expect(finalState!.segments[0].source).toBe('webspeech');
-      // Gör retry count optional eftersom det kanske inte alltid uppdateras i tid
-      if (finalState!.segments[0].retryCount !== undefined) {
-        expect(finalState!.segments[0].retryCount).toBeGreaterThan(0);
-      }
+      // Kontrollera att vi fick tillståndsuppdateringar
+      expect(states.length).toBeGreaterThan(1);
+      
+      const finalState = states[states.length - 1];
+      expect(finalState.segments).toHaveLength(1);
+      expect(finalState.segments[0].text).toBe('Ursprunglig text');
+      expect(finalState.segments[0].source).toBe('webspeech');
+      expect(finalState.segments[0].retryCount).toBeGreaterThan(0);
     });
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
@@ -240,10 +210,16 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
+      // Samla alla tillståndsändringar
+      const states: any[] = [];
+      const subscription = queue.getState$().subscribe(state => {
+        states.push(state);
+      });
+
       queue.addSegment(segment);
 
       // Vänta på första misslyckade försöket
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Sätt upp framgångsrikt svar för retry
       mockApi.clear();
@@ -253,23 +229,18 @@ describe('TranscriptionQueue', () => {
       queue.retrySegment('test-1');
 
       // Vänta på retry att slutföras
-      let finalState;
-      let attempts = 0;
-      const maxAttempts = 10;
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      while (attempts < maxAttempts) {
-        const state = queue.getCurrentState();
-        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
-          finalState = state;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-      }
+      subscription.unsubscribe();
 
-      expect(finalState).toBeDefined();
-      expect(finalState!.segments[0].text).toBe('Framgångsrik retry');
-      expect(finalState!.segments[0].source).toBe('berget');
+      // Hitta det slutliga tillståndet med berget-källa
+      const bergetState = states.find(state => 
+        state.segments.length > 0 && state.segments[0].source === 'berget'
+      );
+
+      expect(bergetState).toBeDefined();
+      expect(bergetState.segments[0].text).toBe('Framgångsrik retry');
+      expect(bergetState.segments[0].source).toBe('berget');
     });
   });
 
@@ -349,25 +320,20 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
+      // Använd RxJS för att vänta på berget-resultat
+      const bergetResultPromise = firstValueFrom(
+        queue.getState$().pipe(
+          skip(1), // Hoppa över initial state
+          timeout(3000)
+        )
+      );
+
       queue.addSegment(segment);
 
-      // Vänta på att Berget AI-bearbetning ska slutföras
-      let finalState;
-      let attempts = 0;
-      const maxAttempts = 10;
+      const finalState = await bergetResultPromise;
 
-      while (attempts < maxAttempts) {
-        const state = queue.getCurrentState();
-        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
-          finalState = state;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 200));
-        attempts++;
-      }
-
-      expect(finalState).toBeDefined();
-      expect(finalState!.segments[0].text).toBe('Text med konstiga tecken här');
+      expect(finalState.segments).toHaveLength(1);
+      expect(finalState.segments[0].text).toBe('Text med konstiga tecken här');
     });
   });
 });
