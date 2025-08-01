@@ -198,7 +198,7 @@ describe('TranscriptionQueue', () => {
       expect(finalState.segments).toHaveLength(1);
       expect(finalState.segments[0].text).toBe('Ursprunglig text');
       expect(finalState.segments[0].source).toBe('webspeech');
-      expect(finalState.segments[0].retryCount).toBeGreaterThanOrEqual(1);
+      expect(finalState.segments[0].retryCount || 0).toBeGreaterThanOrEqual(1);
     });
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
