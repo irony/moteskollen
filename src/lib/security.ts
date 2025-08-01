@@ -164,7 +164,7 @@ export class SecurityService {
   createSafeErrorMessage(error: any): string {
     // Don't expose sensitive information in error messages
     if (typeof error === 'string') {
-      return this.sanitizeInput(error);
+      return this.sanitizeInput(this.removeSensitiveInfo(error));
     }
     
     if (error?.message) {
@@ -183,10 +183,35 @@ export class SecurityService {
         return 'API-fel. Försök igen senare.';
       }
       
-      return this.sanitizeInput(error.message);
+      // Remove sensitive information and sanitize
+      const cleanedMessage = this.removeSensitiveInfo(error.message);
+      return this.sanitizeInput(cleanedMessage);
     }
     
     return 'Ett oväntat fel inträffade. Försök igen senare.';
+  }
+
+  // Remove sensitive information from error messages
+  private removeSensitiveInfo(message: string): string {
+    return message
+      // Remove passwords, tokens, keys, etc.
+      .replace(/password\s*[=:]\s*[^\s,;]+/gi, 'password=***')
+      .replace(/token\s*[=:]\s*[^\s,;]+/gi, 'token=***')
+      .replace(/key\s*[=:]\s*[^\s,;]+/gi, 'key=***')
+      .replace(/secret\s*[=:]\s*[^\s,;]+/gi, 'secret=***')
+      .replace(/api[_-]?key\s*[=:]\s*[^\s,;]+/gi, 'api_key=***')
+      // Remove connection strings
+      .replace(/mongodb:\/\/[^\s]+/gi, 'mongodb://***')
+      .replace(/postgres:\/\/[^\s]+/gi, 'postgres://***')
+      .replace(/mysql:\/\/[^\s]+/gi, 'mysql://***')
+      // Remove file paths that might contain sensitive info
+      .replace(/\/[^\s]*\/[^\s]*\.env[^\s]*/gi, '/***/.env')
+      .replace(/\/[^\s]*\/config\/[^\s]*/gi, '/config/***')
+      // Generic cleanup for anything that looks like credentials
+      .replace(/[a-zA-Z0-9+/]{20,}={0,2}/g, '***') // Base64-like strings
+      .replace(/[0-9a-f]{32,}/gi, '***') // Hex strings (hashes, IDs)
+      // Replace with generic error message if too much was removed
+      .replace(/^\s*[=:*\s]*$/, 'Ett fel inträffade');
   }
 
   // Validate file uploads
