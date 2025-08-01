@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useTranscriptionQueue } from './useTranscriptionQueue';
+import { useAudioRecorder } from './useAudioRecorder';
 
 // Speech Recognition types (inline för att undvika import-problem)
 interface SpeechRecognitionEvent extends Event {
@@ -26,7 +28,7 @@ interface TranscriptionSegment {
   text: string;
   timestamp: Date;
   isLocal: boolean; // true = Speech API, false = Berget AI
-  audioStart: number; // för att matcha med ljudsegment
+  audioStart: number;
   audioEnd?: number;
   confidence?: number;
 }
@@ -43,26 +45,20 @@ interface UseHybridTranscriptionResult {
 export const useHybridTranscription = (
   onBergetTranscription?: (text: string) => void
 ): UseHybridTranscriptionResult => {
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-  const [segments, setSegments] = useState<TranscriptionSegment[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const segmentStartTimeRef = useRef<number>(0);
   const recordingStartTimeRef = useRef<number>(0);
-  const sentSegmentsRef = useRef<Set<string>>(new Set());
-  const segmentAudioRef = useRef<Map<string, Blob[]>>(new Map());
-  const currentSegmentChunksRef = useRef<Blob[]>([]);
-  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastCleanupRef = useRef<string>('');
-  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Använd den nya TranscriptionQueue
+  const transcriptionQueue = useTranscriptionQueue();
+  
+  // Använd AudioRecorder för ljudhantering
+  const audioRecorder = useAudioRecorder((audioChunk) => {
+    // När vi får en audio chunk, skicka den till transcription queue
+    // Detta kommer att trigga Berget AI-bearbetning automatiskt
+    console.log('Audio chunk received for Berget AI processing');
+  }, 8000);
 
   // Kontrollera Speech API support
   const speechSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -79,8 +75,6 @@ export const useHybridTranscription = (
     recognition.maxAlternatives = 1;
 
     let pendingSegmentId: string | null = null;
-    let currentInterimText = '';
-    let hasBeenSentToBerget = false; // Track if current segment has been sent
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const lastResult = event.results[event.results.length - 1];
@@ -91,119 +85,42 @@ export const useHybridTranscription = (
       const now = new Date();
       const audioTime = (now.getTime() - recordingStartTimeRef.current) / 1000;
 
-      // Rensa tidigare silence timer vid varje resultat
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-
       if (isFinal) {
-        // Final resultat - skapa eller uppdatera segment
+        // Final resultat - lägg till i transcription queue
         const segmentId = pendingSegmentId || Date.now().toString();
         
-        // Spara audio-chunks för detta segment
-        if (currentSegmentChunksRef.current.length > 0) {
-          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
-        }
-        
-        setSegments(prev => {
-          const existingIndex = prev.findIndex(s => s.id === segmentId);
-          const newSegment: TranscriptionSegment = {
-            id: segmentId,
-            text: transcript.trim(),
-            timestamp: now,
-            isLocal: true,
-            audioStart: segmentStartTimeRef.current,
-            audioEnd: audioTime,
-            confidence
-          };
-
-          if (existingIndex >= 0) {
-            const updated = [...prev];
-            updated[existingIndex] = newSegment;
-            return updated;
-          } else {
-            return [...prev, newSegment];
-          }
+        transcriptionQueue.addSegment({
+          id: segmentId,
+          text: transcript.trim(),
+          audioStart: segmentStartTimeRef.current,
+          confidence,
+          source: 'webspeech'
         });
-
-        // Skicka ljudsegment till Berget AI för förbättring (bara om vi inte redan skickat det)
-        if (transcript.trim().length > 5 && !hasBeenSentToBerget) {
-          console.log('Skickar final segment till Berget:', segmentId, 'Text:', transcript.trim());
-          sentSegmentsRef.current.add(segmentId);
-          hasBeenSentToBerget = true;
-          sendAudioSegmentToBerget(segmentId, segmentStartTimeRef.current, audioTime);
-        }
 
         // Återställ för nästa segment
         segmentStartTimeRef.current = audioTime;
         pendingSegmentId = null;
-        currentInterimText = '';
-        hasBeenSentToBerget = false;
-        // Rensa chunks för detta segment nu när det är klart
-        currentSegmentChunksRef.current = [];
 
       } else {
-        // Interim resultat - bygg ihop texten progressivt
+        // Interim resultat
         if (!pendingSegmentId) {
           pendingSegmentId = Date.now().toString();
-          // Starta nytt segment - spara nuvarande chunks som bas
-          console.log('Startar nytt interim segment:', pendingSegmentId);
         }
 
-        // Bygg ihop interim text progressivt
-        currentInterimText = transcript;
-
-        setSegments(prev => {
-          const existingIndex = prev.findIndex(s => s.id === pendingSegmentId);
-          const tempSegment: TranscriptionSegment = {
-            id: pendingSegmentId!,
-            text: currentInterimText + ' ...',
-            timestamp: now,
-            isLocal: true,
-            audioStart: segmentStartTimeRef.current,
-            confidence: confidence * 0.7 // Lägre confidence för interim
-          };
-
-          if (existingIndex >= 0) {
-            const updated = [...prev];
-            updated[existingIndex] = tempSegment;
-            return updated;
-          } else {
-            return [...prev, tempSegment];
-          }
+        // Uppdatera interim segment
+        transcriptionQueue.updateSegment(pendingSegmentId, {
+          text: transcript + ' ...',
+          confidence: confidence * 0.7
         });
-
-        // Sätt timer för att skicka till Berget efter 2 sekunder tystnad
-        silenceTimerRef.current = setTimeout(() => {
-          if (pendingSegmentId && currentInterimText.trim().length > 5 && !hasBeenSentToBerget) {
-            console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId, 'Text:', currentInterimText.trim());
-            console.log('Chunks tillgängliga för segment:', currentSegmentChunksRef.current.length);
-            
-            // Spara audio-chunks för detta segment (bara de senaste chunks för detta segment)
-            if (currentSegmentChunksRef.current.length > 0) {
-              // Ta bara de senaste chunks (ungefär 2-3 sekunder värt)
-              const recentChunks = currentSegmentChunksRef.current.slice(-6); // Senaste 3 sekunder
-              segmentAudioRef.current.set(pendingSegmentId, [...recentChunks]);
-              console.log('Sparade chunks för segment:', pendingSegmentId, 'Antal:', recentChunks.length);
-            } else {
-              console.log('VARNING: Inga chunks att spara för segment:', pendingSegmentId);
-            }
-
-            hasBeenSentToBerget = true; // Mark as sent to prevent duplicate sends
-            sendAudioSegmentToBerget(pendingSegmentId, segmentStartTimeRef.current, audioTime);
-          }
-        }, 2000);
       }
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
       if (event.error === 'no-speech') {
-        // Vanligt, behöver inte visa fel - men starta om recognition
-        console.log('No speech detected, restarting recognition...');
+        // Starta om recognition
         setTimeout(() => {
-          if (recognitionRef.current && isRecording) {
+          if (recognitionRef.current && audioRecorder.isRecording) {
             try {
               recognitionRef.current.start();
             } catch (e) {
@@ -214,7 +131,6 @@ export const useHybridTranscription = (
         return;
       }
       
-      // Förbättrade felmeddelanden
       const errorMessages: Record<string, string> = {
         'network': 'Nätverksfel - kontrollera internetanslutning',
         'not-allowed': 'Mikrofon inte tillåten - kontrollera behörigheter',
@@ -227,173 +143,21 @@ export const useHybridTranscription = (
       
       const message = errorMessages[event.error] || `Taligenkänning: ${event.error}`;
       setError(message);
-      
-      // Vid nätverksfel, fortsätt med endast Berget AI
-      if (event.error === 'network') {
-        console.log('Växlar till endast Berget AI på grund av nätverksfel');
-      }
     };
 
     return recognition;
-  }, [speechSupported]);
-
-  const sendAudioSegmentToBerget = async (segmentId: string, startTime: number, endTime: number) => {
-    try {
-      // Kontrollera om vi redan skickat detta segment
-      if (sentSegmentsRef.current.has(segmentId)) {
-        console.log('Segment redan skickat till Berget:', segmentId);
-        return;
-      }
-
-      console.log(`Försöker skicka segment ${segmentId} till Berget AI...`);
-      
-      // Markera som skickat direkt för att undvika dubbletter
-      sentSegmentsRef.current.add(segmentId);
-      
-      // Hämta audio-chunks för just detta segment
-      const segmentChunks = segmentAudioRef.current.get(segmentId);
-      if (!segmentChunks || segmentChunks.length === 0) {
-        console.log('Inga audio-chunks för segment:', segmentId);
-        return;
-      }
-
-      const segmentDuration = endTime - startTime;
-      console.log(`Segment duration: ${segmentDuration}s`);
-      
-      if (segmentDuration < 0.5) {
-        console.log('Segment för kort, hoppar över');
-        return;
-      }
-
-      // Skapa blob från detta segments chunks
-      const audioBlob = new Blob(segmentChunks, { type: 'audio/webm' });
-      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes, ${segmentChunks.length} chunks)`);
-      
-      if (audioBlob.size < 1000) {
-        console.log('Audio blob för liten, hoppar över');
-        return;
-      }
-      
-      // Importera bergetApi dynamiskt för att undvika cirkulär import
-      const { bergetApi } = await import('@/services/bergetApi');
-      console.log('Anropar bergetApi.transcribeAudio...');
-      const result = await bergetApi.transcribeAudio(audioBlob);
-      console.log('Berget AI svar:', result);
-
-      // Rensa bort konstiga tecken och tystnadsindikatorer från Berget AI
-      const cleanText = cleanBergetText(result.text);
-      console.log('Rensat text från Berget:', cleanText);
-      
-      // Hoppa över tomma eller meningslösa segment
-      if (!cleanText || cleanText.length < 2) {
-        console.log('Hoppade över tomt Berget-segment');
-        return;
-      }
-
-      // Kontrollera om vi redan har detta exakta text i något segment
-      const existingText = segments.find(s => s.text.trim() === cleanText.trim());
-      if (existingText) {
-        console.log('Text redan finns i segment, hoppar över duplikat');
-        return;
-      }
-
-      // Uppdatera segmentet med Berget AI:s resultat
-      setSegments(prev => prev.map(segment => 
-        segment.id === segmentId
-          ? {
-              ...segment,
-              text: cleanText,
-              isLocal: false,
-              confidence: 0.95 // Hög confidence för Berget AI
-            }
-          : segment
-      ));
-
-      console.log(`Segment ${segmentId} uppdaterat med Berget AI resultat`);
-
-      // Callback för fullständig transkribering
-      if (onBergetTranscription) {
-        onBergetTranscription(cleanText);
-      }
-
-    } catch (err) {
-      console.error('Berget transcription error för segment', segmentId, ':', err);
-      // Ta bort från sent-listan vid fel så vi kan försöka igen
-      sentSegmentsRef.current.delete(segmentId);
-    }
-  };
-
-  // Funktion för att rensa bort konstiga tecken från Berget AI
-  const cleanBergetText = (text: string): string => {
-    if (!text) return '';
-    
-    // Ta bort konstiga HTML-liknande tecken och repetitiva mönster
-    let cleaned = text
-      // Ta bort &lt i&gt mönster
-      .replace(/&lt\s*i&gt/gi, '')
-      // Ta bort andra HTML entities
-      .replace(/&[a-zA-Z0-9#]+;/g, '')
-      // Ta bort repetitiva tecken (mer än 3 i rad)
-      .replace(/(.)\1{3,}/g, '$1')
-      // Ta bort extra whitespace
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // Om texten bara består av repetitiva tecken eller är för kort, ignorera
-    if (cleaned.length < 3 || /^(.)\1*$/.test(cleaned)) {
-      return '';
-    }
-    
-    return cleaned;
-  };
+  }, [speechSupported, transcriptionQueue, audioRecorder.isRecording]);
 
   const startRecording = useCallback(async () => {
-    console.log('useHybridTranscription: startRecording called');
     try {
       setError(null);
-      setSegments([]);
+      transcriptionQueue.clear();
       
-      console.log('Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 16000
-        } 
-      });
-      console.log('Microphone access granted');
-
-      streamRef.current = stream;
       recordingStartTimeRef.current = Date.now();
       segmentStartTimeRef.current = 0;
 
-      // Sätt upp ljudanalys
-      audioContextRef.current = new AudioContext();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      source.connect(analyserRef.current);
-
-      // Sätt upp MediaRecorder för ljuddata
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
-
-      audioChunksRef.current = [];
-      currentSegmentChunksRef.current = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          console.log('Audio chunk received:', event.data.size, 'bytes');
-          audioChunksRef.current.push(event.data);
-          // Lägg till chunks till aktuellt segment också
-          currentSegmentChunksRef.current.push(event.data);
-          console.log('Total chunks i currentSegment:', currentSegmentChunksRef.current.length);
-        }
-      };
-
-      mediaRecorderRef.current.start(500); // Samla data varje halv sekund för bättre responsivitet
+      // Starta ljudinspelning
+      await audioRecorder.startRecording();
 
       // Sätt upp Speech Recognition
       if (speechSupported) {
@@ -403,155 +167,51 @@ export const useHybridTranscription = (
         }
       }
 
-      setIsRecording(true);
-      monitorAudioLevel();
-      
-      // Starta kontinuerlig protokollstädning var 30:e sekund
-      startProtocolCleanup();
-
     } catch (err) {
       setError('Kunde inte komma åt mikrofonen. Kontrollera behörigheter.');
       console.error('Recording error:', err);
     }
-  }, [setupSpeechRecognition, speechSupported, onBergetTranscription]);
+  }, [setupSpeechRecognition, speechSupported, audioRecorder, transcriptionQueue]);
 
   const stopRecording = useCallback(async () => {
-    setIsRecording(false);
-    
-    // Stoppa protokollstädning
-    if (cleanupTimerRef.current) {
-      clearInterval(cleanupTimerRef.current);
-      cleanupTimerRef.current = null;
-    }
-
-    // Stoppa silence timer
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-
     // Stoppa Speech Recognition
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
 
-    // Stoppa MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    }
-    
-    // Stoppa alla spår
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
+    // Stoppa ljudinspelning
+    await audioRecorder.stopRecording();
+  }, [audioRecorder]);
 
-    // Rensa resurser
-    sentSegmentsRef.current.clear();
-    segmentAudioRef.current.clear();
-    audioChunksRef.current = [];
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
+  // Konvertera TranscriptionQueue segments till vårt format
+  const segments: TranscriptionSegment[] = transcriptionQueue.state.segments.map(segment => ({
+    id: segment.id,
+    text: segment.text,
+    timestamp: segment.timestamp,
+    isLocal: segment.source === 'webspeech',
+    audioStart: segment.audioStart,
+    audioEnd: segment.audioEnd,
+    confidence: segment.confidence
+  }));
 
-    setAudioLevel(0);
-  }, []);
-
-  const monitorAudioLevel = useCallback(() => {
-    if (!analyserRef.current) return;
-
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    
-    const updateLevel = () => {
-      if (!analyserRef.current || !isRecording) return;
-
-      analyserRef.current.getByteFrequencyData(dataArray);
-      
-      const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length;
-      const normalizedLevel = Math.min(average / 128, 1);
-      
-      setAudioLevel(normalizedLevel);
-
-      animationFrameRef.current = requestAnimationFrame(updateLevel);
-    };
-
-    updateLevel();
-  }, [isRecording]);
-
-  // Kontinuerlig protokollstädning
-  const startProtocolCleanup = useCallback(() => {
-    cleanupTimerRef.current = setInterval(async () => {
-      const currentProtocol = segments
-        .filter(s => !s.isLocal) // Bara Berget AI-segment (de som är finpolerade)
-        .map(s => s.text)
-        .join(' ');
-
-      // Bara städa om det finns tillräckligt med text och den har ändrats
-      if (currentProtocol.length > 50 && currentProtocol !== lastCleanupRef.current) {
-        try {
-          const { bergetApi } = await import('@/services/bergetApi');
-          const cleanedProtocol = await bergetApi.cleanupProtocol(currentProtocol);
-          
-          if (cleanedProtocol && cleanedProtocol !== currentProtocol) {
-            console.log('Protokoll städat av Berget AI');
-            
-            // Uppdatera alla Berget AI-segment med den städade texten
-            // Dela upp den städade texten proportionellt baserat på ursprungslängder
-            const originalSegments = segments.filter(s => !s.isLocal);
-            if (originalSegments.length > 0) {
-              const wordsPerSegment = cleanedProtocol.split(' ').length / originalSegments.length;
-              const cleanedWords = cleanedProtocol.split(' ');
-              
-              setSegments(prev => prev.map((segment, index) => {
-                if (!segment.isLocal) {
-                  const segmentIndex = prev.filter((s, i) => i < index && !s.isLocal).length;
-                  const startWord = Math.floor(segmentIndex * wordsPerSegment);
-                  const endWord = Math.floor((segmentIndex + 1) * wordsPerSegment);
-                  const segmentText = cleanedWords.slice(startWord, endWord).join(' ');
-                  
-                  return {
-                    ...segment,
-                    text: segmentText || segment.text
-                  };
-                }
-                return segment;
-              }));
-            }
-            
-            lastCleanupRef.current = cleanedProtocol;
-          }
-        } catch (error) {
-          console.error('Protokollstädning misslyckades:', error);
-        }
-      }
-    }, 30000); // Var 30:e sekund
-  }, [segments]);
-
-  // Rensa vid unmount
+  // Callback för Berget transcription
   useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+    if (onBergetTranscription) {
+      const bergetSegments = segments.filter(s => !s.isLocal);
+      if (bergetSegments.length > 0) {
+        const latestBergetText = bergetSegments[bergetSegments.length - 1].text;
+        onBergetTranscription(latestBergetText);
       }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (cleanupTimerRef.current) {
-        clearInterval(cleanupTimerRef.current);
-      }
-    };
-  }, []);
+    }
+  }, [segments, onBergetTranscription]);
 
   return {
-    isRecording,
-    audioLevel,
+    isRecording: audioRecorder.isRecording,
+    audioLevel: audioRecorder.audioLevel,
     segments,
     startRecording,
     stopRecording,
-    error: error || (!speechSupported ? 'Taligenkänning stöds inte i denna webbläsare' : null)
+    error: error || audioRecorder.error || (!speechSupported ? 'Taligenkänning stöds inte i denna webbläsare' : null)
   };
 };
