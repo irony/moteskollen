@@ -193,6 +193,7 @@ describe('TranscriptionQueue', () => {
       expect(failedSegment!.text).toBe('Ursprunglig text');
       expect(failedSegment!.source).toBe('webspeech');
       expect(failedSegment!.retryCount).toBeGreaterThanOrEqual(1);
+    });
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
       const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
@@ -246,6 +247,7 @@ describe('TranscriptionQueue', () => {
       expect(retrySegment).toBeDefined();
       expect(retrySegment!.text).toBe('Framgångsrik retry');
       expect(retrySegment!.source).toBe('berget');
+    });
   });
 
   describe('Fönsterhantering', () => {
