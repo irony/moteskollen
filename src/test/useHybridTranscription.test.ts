@@ -11,6 +11,7 @@ vi.mock('../services/bergetApi', () => ({
 
 // Mock useTranscriptionQueue
 const mockAddSegment = vi.fn();
+const mockUpdateSegment = vi.fn();
 const mockClear = vi.fn();
 const mockState = {
   segments: [],
@@ -23,8 +24,8 @@ vi.mock('../hooks/useTranscriptionQueue', () => ({
   useTranscriptionQueue: () => ({
     state: mockState,
     addSegment: mockAddSegment,
+    updateSegment: mockUpdateSegment,
     clear: mockClear,
-    updateSegment: vi.fn(),
     retrySegment: vi.fn()
   })
 }));
@@ -53,11 +54,15 @@ describe('useHybridTranscription', () => {
     mockState.segments = [];
   });
 
-  it('ska visa realtidstext från Speech Recognition', async () => {
+  it('ska integrera med TranscriptionQueue för realtidstext', async () => {
     const { result } = renderHook(() => useHybridTranscription());
 
     // Simulera Speech Recognition resultat
     const mockRecognition = {
+      continuous: true,
+      interimResults: true,
+      lang: 'sv-SE',
+      maxAlternatives: 1,
       start: vi.fn(),
       stop: vi.fn(),
       onresult: null as any,
@@ -70,6 +75,9 @@ describe('useHybridTranscription', () => {
     await act(async () => {
       await result.current.startRecording();
     });
+
+    // Kontrollera att TranscriptionQueue rensas vid start
+    expect(mockClear).toHaveBeenCalled();
 
     // Simulera interim resultat (realtidstext)
     const interimEvent = {
@@ -88,24 +96,25 @@ describe('useHybridTranscription', () => {
       }
     });
 
-    // Kontrollera att interim text visas med "..."
+    // Kontrollera att interim text läggs till med "..."
     expect(mockAddSegment).toHaveBeenCalledWith(
       expect.objectContaining({
-        text: expect.stringContaining('...'),
-        source: 'webspeech'
+        text: 'Hej detta är ...',
+        source: 'webspeech',
+        confidence: expect.any(Number)
       })
     );
   });
 
-  it('ska skicka audioData till Berget AI när audio chunks tas emot', async () => {
+  it('ska skicka audioData till TranscriptionQueue för Berget AI-bearbetning', async () => {
     const { result } = renderHook(() => useHybridTranscription());
 
     await act(async () => {
       await result.current.startRecording();
     });
 
-    // Simulera att vi får en audio chunk
-    const audioChunk = new Blob(['test audio'], { type: 'audio/webm' });
+    // Simulera att vi får en audio chunk från useAudioRecorder
+    const audioChunk = new Blob(['test audio data'], { type: 'audio/webm' });
     
     act(() => {
       if (mockAudioChunkCallback) {
@@ -113,23 +122,27 @@ describe('useHybridTranscription', () => {
       }
     });
 
-    // Kontrollera att segment med audioData läggs till
+    // Kontrollera att segment med audioData läggs till för Berget AI-bearbetning
     expect(mockAddSegment).toHaveBeenCalledWith(
       expect.objectContaining({
+        text: 'Bearbetar ljud...',
         audioData: audioChunk,
-        source: 'webspeech'
+        source: 'webspeech',
+        audioStart: expect.any(Number),
+        audioEnd: expect.any(Number)
       })
     );
   });
 
-  it('ska visa både webspeech och berget segment i realtid', () => {
-    // Simulera att vi har både webspeech och berget segment
+  it('ska konvertera TranscriptionQueue-segment till rätt format', () => {
+    // Simulera att TranscriptionQueue har segment
     mockState.segments = [
       {
         id: 'ws-1',
         text: 'Webspeech text...',
         timestamp: new Date(),
         audioStart: 0,
+        audioEnd: 2,
         confidence: 0.7,
         source: 'webspeech' as const
       },
@@ -138,6 +151,7 @@ describe('useHybridTranscription', () => {
         text: 'Förbättrad Berget text',
         timestamp: new Date(),
         audioStart: 0,
+        audioEnd: 2,
         confidence: 0.95,
         source: 'berget' as const
       }
@@ -145,8 +159,74 @@ describe('useHybridTranscription', () => {
 
     const { result } = renderHook(() => useHybridTranscription());
 
+    // Kontrollera att segment konverteras korrekt
     expect(result.current.segments).toHaveLength(2);
-    expect(result.current.segments[0].isLocal).toBe(true); // webspeech
-    expect(result.current.segments[1].isLocal).toBe(false); // berget
+    expect(result.current.segments[0]).toEqual(
+      expect.objectContaining({
+        id: 'ws-1',
+        text: 'Webspeech text...',
+        isLocal: true, // webspeech = local
+        audioStart: 0,
+        audioEnd: 2,
+        confidence: 0.7
+      })
+    );
+    expect(result.current.segments[1]).toEqual(
+      expect.objectContaining({
+        id: 'bg-1',
+        text: 'Förbättrad Berget text',
+        isLocal: false, // berget = not local
+        confidence: 0.95
+      })
+    );
+  });
+
+  it('ska hantera final Speech Recognition-resultat korrekt', async () => {
+    const { result } = renderHook(() => useHybridTranscription());
+
+    const mockRecognition = {
+      continuous: true,
+      interimResults: true,
+      lang: 'sv-SE',
+      maxAlternatives: 1,
+      start: vi.fn(),
+      stop: vi.fn(),
+      onresult: null as any,
+      onerror: null as any
+    };
+
+    (global as any).webkitSpeechRecognition = vi.fn(() => mockRecognition);
+
+    await act(async () => {
+      await result.current.startRecording();
+    });
+
+    // Simulera final resultat
+    const finalEvent = {
+      results: [{
+        0: { transcript: 'Hej detta är en komplett mening', confidence: 0.9 },
+        isFinal: true,
+        length: 1
+      }],
+      resultIndex: 0,
+      results: { length: 1 }
+    };
+
+    act(() => {
+      if (mockRecognition.onresult) {
+        mockRecognition.onresult(finalEvent);
+      }
+    });
+
+    // Kontrollera att final text läggs till utan "..."
+    expect(mockAddSegment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Hej detta är en komplett mening',
+        source: 'webspeech',
+        confidence: 0.9,
+        audioStart: expect.any(Number),
+        audioEnd: expect.any(Number)
+      })
+    );
   });
 });
