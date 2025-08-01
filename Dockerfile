@@ -7,14 +7,17 @@ WORKDIR /app
 # Kopiera package files
 COPY package*.json ./
 
-# Installera dependencies
-RUN npm ci --only=production
+# Installera alla dependencies (inklusive devDependencies för bygget)
+RUN npm ci
 
 # Kopiera källkod
 COPY . .
 
 # Bygg applikationen
 RUN npm run build
+
+# Rensa devDependencies efter bygget
+RUN npm prune --production
 
 # Produktionssteg med nginx
 FROM nginx:alpine
