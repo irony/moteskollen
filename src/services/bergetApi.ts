@@ -401,7 +401,9 @@ class BergetApiService {
   // Transkribera ljudfil
   async transcribeAudio(audioBlob: Blob, retries: number = 2): Promise<TranscriptionResponse> {
     // Validate file upload
-    const file = new File([audioBlob], 'audio.webm', { type: 'audio/webm' });
+    const fileName = audioBlob instanceof File ? audioBlob.name : 'audio.webm';
+    const fileType = audioBlob.type || 'audio/webm';
+    const file = new File([audioBlob], fileName, { type: fileType });
     const { securityService } = await import('../lib/security');
     const validation = securityService.validateFileUpload(file);
     if (!validation.valid) {
@@ -409,7 +411,7 @@ class BergetApiService {
     }
 
     const formData = new FormData();
-    formData.append('file', audioBlob, 'audio.webm');
+    formData.append('file', audioBlob, fileName);
     formData.append('language', 'sv');
 
     for (let attempt = 0; attempt <= retries; attempt++) {

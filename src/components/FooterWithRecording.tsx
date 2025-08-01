@@ -30,11 +30,8 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onFileUpload(file);
-    }
+  const handleFileSelect = () => {
+    onFileUpload(new File([], '')); // Dummy file för att trigga dialog
   };
 
   const pulseScale = 1 + (audioLevel * 0.1);
@@ -49,7 +46,7 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={handleFileSelect}
               className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded-xl w-10 h-10"
             >
               <Upload className="w-4 h-4" />
@@ -134,14 +131,6 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
         </div>
       </div>
 
-      {/* Gömd filinput */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*,.pdf,.doc,.docx,.txt"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
     </div>
   );
 };

@@ -51,6 +51,7 @@ import { ChatInterface } from './ChatInterface';
 import { FooterWithRecording } from './FooterWithRecording';
 import { AppHeader } from './AppHeader';
 import { HistoryDrawer } from './HistoryDrawer';
+import { FileUploadDialog } from './FileUploadDialog';
 
 import { GlobalSearch } from './GlobalSearch';
 import { bergetApi } from '@/services/bergetApi';
@@ -145,6 +146,7 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -170,41 +172,31 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
   const { analysis, isAnalyzing, analyzeTranscription } = useMeetingAnalysis();
 
-  const handleFileUpload = useCallback(async (file: File) => {
-    if (!file) return;
+  const handleFileUpload = useCallback((file: File) => {
+    setIsUploadDialogOpen(true);
+  }, []);
 
-    setIsProcessingFile(true);
-    try {
-      const result = await bergetApi.transcribeAudio(file);
-      
-      const newMeeting: Meeting = {
-        id: Date.now().toString(),
-        title: file.name.replace(/\.[^/.]+$/, "") || "Uppladdat möte",
-        date: new Date(),
-        status: 'completed',
-        summary: "",
-        actionItems: [],
-        originalTranscription: result.text,
-        templateType: selectedTemplate
-      };
+  const handleFileProcessed = useCallback((file: File, result: any) => {
+    const newMeeting: Meeting = {
+      id: Date.now().toString(),
+      title: file.name.replace(/\.[^/.]+$/, "") || "Uppladdat möte",
+      date: new Date(),
+      status: 'completed',
+      summary: "",
+      actionItems: [],
+      originalTranscription: result.text,
+      templateType: selectedTemplate
+    };
 
-      setMeetings(prev => [newMeeting, ...prev]);
-      
-      toast({
-        title: "Fil uppladdad",
-        description: "Ljudfilen har transkriberats framgångsrikt"
-      });
-    } catch (error: any) {
-      toast({
-        title: "Uppladdning misslyckades",
-        description: error.message,
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessingFile(false);
-      setUploadedFile(null);
-    }
-  }, [selectedTemplate, toast]);
+    const updatedMeetings = [newMeeting, ...meetings];
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    
+    toast({
+      title: "Fil bearbetad",
+      description: `${file.name} har transkriberats och lagts till i möteslistan.`
+    });
+  }, [selectedTemplate, meetings, toast]);
 
   const handleDocumentUpload = useCallback(async (file: File) => {
     if (!file) return;
@@ -613,6 +605,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
             setIsHistoryOpen(false);
             handleStartRecording();
           }}
+        />
+
+        {/* Filuppladdnings Dialog */}
+        <FileUploadDialog
+          isOpen={isUploadDialogOpen}
+          onClose={() => setIsUploadDialogOpen(false)}
+          onFileProcessed={handleFileProcessed}
         />
       </div>
     </div>

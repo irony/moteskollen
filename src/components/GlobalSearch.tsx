@@ -67,12 +67,9 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      onFileUpload(file);
-      setIsOpen(false);
-    }
+  const handleFileSelect = () => {
+    onFileUpload(new File([], '')); // Dummy file för att trigga dialog
+    setIsOpen(false);
   };
 
   const quickActions = [
@@ -110,9 +107,7 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
       title: 'Ladda upp fil',
       description: 'Ladda upp ljud eller dokument',
       icon: Upload,
-      action: () => {
-        fileInputRef.current?.click();
-      }
+      action: handleFileSelect
     }
   ];
 
@@ -264,14 +259,6 @@ export const GlobalSearch: React.FC<GlobalSearchProps> = ({
         </DialogContent>
       </Dialog>
 
-      {/* Gömd filinput */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*,.pdf,.doc,.docx,.txt"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
     </>
   );
 };

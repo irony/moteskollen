@@ -204,7 +204,11 @@ export class SecurityService {
       'audio/wav',
       'audio/mp3',
       'audio/mp4',
-      'audio/mpeg'
+      'audio/mpeg',
+      'audio/m4a',
+      'audio/aac',
+      'audio/ogg',
+      'audio/x-m4a'
     ];
 
     if (file.size > maxSize) {
