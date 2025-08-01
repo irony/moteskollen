@@ -142,17 +142,26 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
-      // Vänta på att Berget AI-bearbetning ska slutföras
-      const state = await firstValueFrom(
-        queue.getState$().pipe(
-          take(3), // Initial, processing, completed
-          timeout(2000)
-        )
-      );
+      // Vänta på att bearbetning ska slutföras med flera försök
+      let finalState;
+      let attempts = 0;
+      const maxAttempts = 10;
 
-      expect(state.segments[0].source).toBe('berget');
-      expect(state.segments[0].text).toBe('Förbättrad text från Berget');
-      expect(state.segments[0].confidence).toBe(0.95);
+      while (attempts < maxAttempts) {
+        const state = queue.getCurrentState();
+        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
+          finalState = state;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
+
+      expect(finalState).toBeDefined();
+      expect(finalState!.segments).toHaveLength(1);
+      expect(finalState!.segments[0].source).toBe('berget');
+      expect(finalState!.segments[0].text).toBe('Förbättrad text från Berget');
+      expect(finalState!.segments[0].confidence).toBe(0.95);
     });
 
     it('ska hantera Berget API-fel gracefully', async () => {
@@ -170,11 +179,12 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
-      const state = await firstValueFrom(
-        queue.getState$().pipe(take(2), timeout(2000))
-      );
+      // Vänta på att fel ska hanteras
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Segment ska behålla ursprunglig text vid fel
+      const state = queue.getCurrentState();
+
+      expect(state.segments).toHaveLength(1);
       expect(state.segments[0].text).toBe('Ursprunglig text');
       expect(state.segments[0].source).toBe('webspeech');
       expect(state.segments[0].retryCount).toBe(1);
@@ -198,7 +208,7 @@ describe('TranscriptionQueue', () => {
       queue.addSegment(segment);
 
       // Vänta på första misslyckade försöket
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Sätt upp framgångsrikt svar för retry
       mockApi.clear();
@@ -207,12 +217,24 @@ describe('TranscriptionQueue', () => {
       // Försök igen
       queue.retrySegment('test-1');
 
-      const state = await firstValueFrom(
-        queue.getState$().pipe(take(2), timeout(2000))
-      );
+      // Vänta på retry att slutföras
+      let finalState;
+      let attempts = 0;
+      const maxAttempts = 10;
 
-      expect(state.segments[0].text).toBe('Framgångsrik retry');
-      expect(state.segments[0].source).toBe('berget');
+      while (attempts < maxAttempts) {
+        const state = queue.getCurrentState();
+        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
+          finalState = state;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
+
+      expect(finalState).toBeDefined();
+      expect(finalState!.segments[0].text).toBe('Framgångsrik retry');
+      expect(finalState!.segments[0].source).toBe('berget');
     });
   });
 
@@ -294,11 +316,23 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
-      const state = await firstValueFrom(
-        queue.getState$().pipe(take(2), timeout(2000))
-      );
+      // Vänta på att Berget AI-bearbetning ska slutföras
+      let finalState;
+      let attempts = 0;
+      const maxAttempts = 10;
 
-      expect(state.segments[0].text).toBe('Text med konstiga tecken här');
+      while (attempts < maxAttempts) {
+        const state = queue.getCurrentState();
+        if (state.segments.length > 0 && state.segments[0].source === 'berget') {
+          finalState = state;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
+
+      expect(finalState).toBeDefined();
+      expect(finalState!.segments[0].text).toBe('Text med konstiga tecken här');
     });
   });
 });
