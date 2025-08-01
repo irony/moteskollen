@@ -126,6 +126,39 @@ describe('TranscriptionQueue', () => {
   });
 
   describe('Berget AI-integration', () => {
+    it('ska automatiskt skicka audioData till Berget AI när segment läggs till', async () => {
+      const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
+      mockApi.setResponse(audioBlob.size.toString(), { text: 'Automatisk Berget transkribering' });
+
+      const segment: Omit<AudioSegment, 'timestamp'> = {
+        id: 'auto-test-1',
+        text: 'Bearbetar ljud...',
+        audioStart: 0,
+        confidence: 0.5,
+        source: 'webspeech',
+        audioData: audioBlob
+      };
+
+      // Vänta på att Berget AI automatiskt bearbetar segmentet
+      const bergetResultPromise = firstValueFrom(
+        queue.getState$().pipe(
+          filter(state => 
+            state.segments.length > 0 && 
+            state.segments.some(s => s.source === 'berget' && s.text === 'Automatisk Berget transkribering')
+          ),
+          take(1)
+        )
+      );
+
+      queue.addSegment(segment);
+
+      const finalState = await bergetResultPromise;
+      const bergetSegment = finalState.segments.find(s => s.source === 'berget');
+
+      expect(bergetSegment).toBeDefined();
+      expect(bergetSegment!.text).toBe('Automatisk Berget transkribering');
+      expect(bergetSegment!.confidence).toBe(0.95);
+    });
     it('ska skicka webspeech-segment till Berget AI för förbättring', async () => {
       const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
       mockApi.setResponse(audioBlob.size.toString(), { text: 'Förbättrad text från Berget' });

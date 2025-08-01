@@ -55,9 +55,23 @@ export const useHybridTranscription = (
   
   // Använd AudioRecorder för ljudhantering
   const audioRecorder = useAudioRecorder((audioChunk) => {
-    // När vi får en audio chunk, skicka den till transcription queue
-    // Detta kommer att trigga Berget AI-bearbetning automatiskt
-    console.log('Audio chunk received for Berget AI processing');
+    // När vi får en audio chunk, skapa ett segment och skicka till transcription queue
+    const now = new Date();
+    const audioTime = (now.getTime() - recordingStartTimeRef.current) / 1000;
+    
+    const segmentId = `audio-${Date.now()}`;
+    
+    transcriptionQueue.addSegment({
+      id: segmentId,
+      text: 'Bearbetar ljud...', // Placeholder text medan Berget AI bearbetar
+      audioStart: audioTime - 8, // 8 sekunder bakåt (chunk-storlek)
+      audioEnd: audioTime,
+      confidence: 0.5,
+      source: 'webspeech',
+      audioData: audioChunk
+    });
+    
+    console.log('Audio chunk sent to TranscriptionQueue for Berget AI processing');
   }, 8000);
 
   // Kontrollera Speech API support
@@ -87,12 +101,13 @@ export const useHybridTranscription = (
 
       if (isFinal) {
         // Final resultat - lägg till i transcription queue
-        const segmentId = pendingSegmentId || Date.now().toString();
+        const segmentId = pendingSegmentId || `speech-${Date.now()}`;
         
         transcriptionQueue.addSegment({
           id: segmentId,
           text: transcript.trim(),
           audioStart: segmentStartTimeRef.current,
+          audioEnd: audioTime,
           confidence,
           source: 'webspeech'
         });
@@ -102,16 +117,25 @@ export const useHybridTranscription = (
         pendingSegmentId = null;
 
       } else {
-        // Interim resultat
+        // Interim resultat - visa realtidstext
         if (!pendingSegmentId) {
-          pendingSegmentId = Date.now().toString();
+          pendingSegmentId = `speech-interim-${Date.now()}`;
+          
+          // Lägg till nytt interim segment
+          transcriptionQueue.addSegment({
+            id: pendingSegmentId,
+            text: transcript + ' ...',
+            audioStart: segmentStartTimeRef.current,
+            confidence: confidence * 0.7,
+            source: 'webspeech'
+          });
+        } else {
+          // Uppdatera befintligt interim segment
+          transcriptionQueue.updateSegment(pendingSegmentId, {
+            text: transcript + ' ...',
+            confidence: confidence * 0.7
+          });
         }
-
-        // Uppdatera interim segment
-        transcriptionQueue.updateSegment(pendingSegmentId, {
-          text: transcript + ' ...',
-          confidence: confidence * 0.7
-        });
       }
     };
 
