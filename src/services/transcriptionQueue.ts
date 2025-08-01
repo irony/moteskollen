@@ -121,10 +121,13 @@ const createSegmentStream = (bergetTranscribe: (segment: AudioSegment) => Observ
             retryCount: (initialSegment.retryCount || 0) + 1,
             isProcessing: false
           });
-        })
+        }),
+        // Lägg till delay för att säkerställa att processing-segmentet hinner visas först
+        delay(100)
       );
       
       return merge(
+        initialStream$,
         processingStream$,
         bergetStream$
       );

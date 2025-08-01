@@ -140,23 +140,29 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
-      // Använd RxJS-strömmen för att vänta på uppdateringar
-      const statePromise = firstValueFrom(
-        queue.getState$().pipe(
-          skip(1), // Hoppa över initial tom state
-          take(3), // Ta första 3 uppdateringar: initial segment, processing, berget result
-          timeout(5000)
-        )
-      );
+      // Samla alla tillståndsändringar
+      const states: any[] = [];
+      const subscription = queue.getState$().subscribe(state => {
+        states.push(state);
+      });
 
       queue.addSegment(segment);
 
-      const finalState = await statePromise;
+      // Vänta på att Berget AI-bearbetning ska slutföras
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      expect(finalState.segments).toHaveLength(1);
-      expect(finalState.segments[0].source).toBe('berget');
-      expect(finalState.segments[0].text).toBe('Förbättrad text från Berget');
-      expect(finalState.segments[0].confidence).toBe(0.95);
+      subscription.unsubscribe();
+
+      // Hitta det slutliga tillståndet med berget-källa
+      const bergetState = states.find(state => 
+        state.segments.length > 0 && state.segments[0].source === 'berget'
+      );
+
+      expect(bergetState).toBeDefined();
+      expect(bergetState.segments).toHaveLength(1);
+      expect(bergetState.segments[0].source).toBe('berget');
+      expect(bergetState.segments[0].text).toBe('Förbättrad text från Berget');
+      expect(bergetState.segments[0].confidence).toBe(0.95);
     });
 
     it('ska hantera Berget API-fel gracefully', async () => {
@@ -192,7 +198,7 @@ describe('TranscriptionQueue', () => {
       expect(finalState.segments).toHaveLength(1);
       expect(finalState.segments[0].text).toBe('Ursprunglig text');
       expect(finalState.segments[0].source).toBe('webspeech');
-      expect(finalState.segments[0].retryCount).toBeGreaterThan(0);
+      expect(finalState.segments[0].retryCount).toBeGreaterThanOrEqual(1);
     });
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
@@ -320,20 +326,27 @@ describe('TranscriptionQueue', () => {
         audioData: audioBlob
       };
 
-      // Använd RxJS för att vänta på berget-resultat
-      const bergetResultPromise = firstValueFrom(
-        queue.getState$().pipe(
-          skip(1), // Hoppa över initial state
-          timeout(3000)
-        )
-      );
+      // Samla alla tillståndsändringar
+      const states: any[] = [];
+      const subscription = queue.getState$().subscribe(state => {
+        states.push(state);
+      });
 
       queue.addSegment(segment);
 
-      const finalState = await bergetResultPromise;
+      // Vänta på att Berget AI-bearbetning ska slutföras
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      expect(finalState.segments).toHaveLength(1);
-      expect(finalState.segments[0].text).toBe('Text med konstiga tecken här');
+      subscription.unsubscribe();
+
+      // Hitta det slutliga tillståndet med berget-källa
+      const bergetState = states.find(state => 
+        state.segments.length > 0 && state.segments[0].source === 'berget'
+      );
+
+      expect(bergetState).toBeDefined();
+      expect(bergetState.segments).toHaveLength(1);
+      expect(bergetState.segments[0].text).toBe('Text med konstiga tecken här');
     });
   });
 });
