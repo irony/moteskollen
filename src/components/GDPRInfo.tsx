@@ -130,7 +130,20 @@ export const GDPRInfo: React.FC<GDPRInfoProps> = ({ children }) => {
                   <div>
                     <p className="font-medium">Ljudfiler för transkription</p>
                     <p className="text-sm text-muted-foreground">
-                      Raderas automatiskt efter bearbetning (max 24h).
+                      Inga ljudfiler lagras på servern. All bearbetning sker i minnet och inga transkriberingar sparas. All data hanteras krypterat på vägen och ingen användardata läcker till loggfiler eller liknande.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start space-x-2">
+                  <Badge variant="outline">
+                    <Cloud className="w-3 h-3 mr-1" />
+                    Juridik
+                  </Badge>
+                  <div>
+                    <p className="font-medium">Ljudfiler för transkription</p>
+                    <p className="text-sm text-muted-foreground">
+                      När du skapar en API nyckel hos Berget har du automatiskt ett personuppgiftsbiträdesavtal med Berget AI AB som reglerar hur de hanterar dina data. Berget AI AB är ett helägt svenskt företag som omfattas av EU:s dataskyddsförordning (GDPR).
                     </p>
                   </div>
                 </div>

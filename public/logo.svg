@@ -1,0 +1,33 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bakgrundscirkel med gradient -->
+  <circle cx="32" cy="32" r="30" fill="url(#gradient)" stroke="url(#borderGradient)" stroke-width="2"/>
+
+  <!-- Mikrofon-ikon -->
+  <g transform="translate(32, 32)">
+    <!-- Mikrofonkropp -->
+    <rect x="-4" y="-12" width="8" height="16" rx="4" fill="white" opacity="0.9"/>
+
+    <!-- Mikrofonställning -->
+    <path d="M-8 4 Q-8 8 -4 8 L4 8 Q8 8 8 4" stroke="white" stroke-width="2" fill="none" opacity="0.8"/>
+    <line x1="0" y1="8" x2="0" y2="14" stroke="white" stroke-width="2" opacity="0.8"/>
+    <line x1="-6" y1="14" x2="6" y2="14" stroke="white" stroke-width="2" opacity="0.8"/>
+
+    <!-- Ljudvågor -->
+    <path d="M12 -4 Q16 0 12 4" stroke="white" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <path d="M14 -6 Q20 0 14 6" stroke="white" stroke-width="1.5" fill="none" opacity="0.4"/>
+    <path d="M-12 -4 Q-16 0 -12 4" stroke="white" stroke-width="1.5" fill="none" opacity="0.6"/>
+    <path d="M-14 -6 Q-20 0 -14 6" stroke="white" stroke-width="1.5" fill="none" opacity="0.4"/>
+  </g>
+
+  <!-- Gradienter -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#357ABD;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="borderGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5BA0F2;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#2E5A8A;stop-opacity:0.8" />
+    </linearGradient>
+  </defs>
+</svg>
