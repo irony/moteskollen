@@ -255,23 +255,9 @@ export class SecurityService {
       document.head.appendChild(meta);
     }
 
-    // Add other security headers
-    const securityHeaders = [
-      { name: 'X-Frame-Options', content: 'DENY' },
-      { name: 'X-Content-Type-Options', content: 'nosniff' },
-      { name: 'Referrer-Policy', content: 'strict-origin-when-cross-origin' },
-      { name: 'Permissions-Policy', content: 'camera=(), microphone=(), geolocation=()' }
-    ];
-
-    securityHeaders.forEach(header => {
-      const existingMeta = document.querySelector(`meta[http-equiv="${header.name}"]`);
-      if (!existingMeta) {
-        const meta = document.createElement('meta');
-        meta.httpEquiv = header.name;
-        meta.content = header.content;
-        document.head.appendChild(meta);
-      }
-    });
+    // Note: Other security headers like X-Frame-Options, X-Content-Type-Options, etc.
+    // cannot be set via meta tags and must be set by the server.
+    // These would need to be configured in your web server or hosting platform.
   }
 
   // Rate limiting for API calls

@@ -8,7 +8,7 @@ import App from './App.tsx'
 import './index.css'
 import { SecurityService } from '@/lib/security'
 
-// Initialize security headers
+// Initialize CSP header (other security headers must be set by server)
 SecurityService.addSecurityHeaders();
 
 createRoot(document.getElementById("root")!).render(<App />);
