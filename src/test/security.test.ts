@@ -5,6 +5,7 @@ describe('SecurityService', () => {
   beforeEach(() => {
     // Rensa localStorage före varje test
     localStorage.clear();
+    vi.clearAllMocks();
   });
 
   describe('Input Sanitization', () => {
@@ -27,6 +28,28 @@ describe('SecurityService', () => {
   describe('Token Management', () => {
     it('ska kunna spara och hämta tokens säkert', () => {
       const testToken = 'test-token-123';
+      
+      // Mock localStorage för detta test
+      const mockGetItem = vi.fn();
+      const mockSetItem = vi.fn();
+      
+      Object.defineProperty(window, 'localStorage', {
+        value: {
+          getItem: mockGetItem,
+          setItem: mockSetItem,
+          removeItem: vi.fn(),
+          clear: vi.fn(),
+        },
+        writable: true,
+      });
+      
+      // Simulera att token sparas och hämtas
+      mockSetItem.mockImplementation((key, value) => {
+        if (key === 'test_key') {
+          const tokenData = JSON.parse(value);
+          mockGetItem.mockReturnValue(value);
+        }
+      });
       
       securityService.setSecureToken('test_key', testToken);
       const retrieved = securityService.getSecureToken('test_key');

@@ -89,11 +89,13 @@ describe('useHybridTranscription', () => {
 
     // Simulera interim resultat (realtidstext)
     const interimEvent = {
-      results: [{
-        0: { transcript: 'Hej detta är', confidence: 0.8 },
-        isFinal: false,
-        length: 1
-      }],
+      results: [
+        {
+          0: { transcript: 'Hej detta är', confidence: 0.8 },
+          isFinal: false,
+          length: 1
+        }
+      ],
       resultIndex: 0,
       results: { length: 1 }
     };
@@ -211,11 +213,13 @@ describe('useHybridTranscription', () => {
 
     // Simulera final resultat
     const finalEvent = {
-      results: [{
-        0: { transcript: 'Hej detta är en komplett mening', confidence: 0.9 },
-        isFinal: true,
-        length: 1
-      }],
+      results: [
+        {
+          0: { transcript: 'Hej detta är en komplett mening', confidence: 0.9 },
+          isFinal: true,
+          length: 1
+        }
+      ],
       resultIndex: 0,
       results: { length: 1 }
     };

@@ -3,9 +3,10 @@ import { renderHook, act } from '@testing-library/react';
 import { useTranscriptionQueue } from '../hooks/useTranscriptionQueue';
 
 // Mock bergetApi
-const mockTranscribeAudio = vi.fn().mockResolvedValue({ text: 'Mock transcription' });
 vi.mock('../services/bergetApi', () => ({
-  bergetApi: mockTranscribeAudio
+  bergetApi: {
+    transcribeAudio: vi.fn().mockResolvedValue({ text: 'Mock transcription' })
+  }
 }));
 
 // Mock security service
