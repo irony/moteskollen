@@ -11,7 +11,6 @@ import {
 import { 
   map, 
   scan, 
-  windowWhen, 
   mergeMap, 
   catchError, 
   retry, 
@@ -19,7 +18,9 @@ import {
   tap,
   filter,
   distinctUntilChanged,
-  shareReplay
+  shareReplay,
+  startWith,
+  switchMap
 } from 'rxjs/operators';
 
 export interface AudioSegment {
@@ -47,7 +48,7 @@ export interface BergetApiInterface {
 }
 
 export class TranscriptionQueue {
-  private segmentSubject = new Subject<AudioSegment>();
+  private segmentInputSubject = new Subject<AudioSegment>();
   private stateSubject = new BehaviorSubject<TranscriptionState>({
     segments: [],
     fullTranscription: '',
@@ -56,9 +57,7 @@ export class TranscriptionQueue {
   });
 
   private bergetApi: BergetApiInterface;
-  private windowTrigger = new Subject<void>();
-  private maxWindowSize = 5;
-  private windowTimeoutMs = 3000;
+  private segmentStreams = new Map<string, Observable<AudioSegment>>();
 
   constructor(bergetApi: BergetApiInterface) {
     this.bergetApi = bergetApi;
@@ -66,17 +65,23 @@ export class TranscriptionQueue {
   }
 
   private setupTranscriptionPipeline(): void {
-    // Direkt pipeline för att lägga till segment omedelbart
-    const immediateSegmentStream$ = this.segmentSubject.pipe(
-      scan((state: TranscriptionState, newSegment: AudioSegment) => {
-        // Uppdatera befintligt segment eller lägg till nytt
+    // Huvudström som samlar alla segment-strömmar
+    const allSegmentUpdates$ = this.segmentInputSubject.pipe(
+      mergeMap(inputSegment => this.createSegmentStream(inputSegment)),
+      shareReplay(1)
+    );
+
+    // Bygg upp det fullständiga tillståndet från alla segment-uppdateringar
+    const transcriptionState$ = allSegmentUpdates$.pipe(
+      scan((state: TranscriptionState, updatedSegment: AudioSegment) => {
+        // Uppdatera eller lägg till segment
         const allSegments = [...state.segments];
-        const existingIndex = allSegments.findIndex(s => s.id === newSegment.id);
+        const existingIndex = allSegments.findIndex(s => s.id === updatedSegment.id);
         
         if (existingIndex >= 0) {
-          allSegments[existingIndex] = { ...allSegments[existingIndex], ...newSegment };
+          allSegments[existingIndex] = updatedSegment;
         } else {
-          allSegments.push(newSegment);
+          allSegments.push(updatedSegment);
         }
 
         // Sortera segment efter tidsstämpel
@@ -107,115 +112,79 @@ export class TranscriptionQueue {
       shareReplay(1)
     );
 
-    // Prenumerera på den direkta strömmen och uppdatera state
-    immediateSegmentStream$.subscribe(state => {
+    // Prenumerera på tillståndsändringar
+    transcriptionState$.subscribe(state => {
       this.stateSubject.next(state);
-    });
-
-    // Separat pipeline för Berget AI-bearbetning
-    const bergetProcessingStream$ = this.segmentSubject.pipe(
-      // Filtrera bara webspeech-segment med audioData
-      filter(segment => 
-        segment.source === 'webspeech' && 
-        !!segment.audioData && 
-        !segment.isProcessing &&
-        (segment.retryCount || 0) < 3
-      ),
-      // Gruppera i fönster för batch-bearbetning
-      windowWhen(() => 
-        merge(
-          timer(this.windowTimeoutMs),
-          this.segmentSubject.pipe(
-            scan((count) => count + 1, 0),
-            filter(count => count >= this.maxWindowSize),
-            map(() => void 0)
-          )
-        )
-      ),
-      // Bearbeta varje fönster
-      mergeMap(window$ => 
-        window$.pipe(
-          scan((acc: AudioSegment[], segment: AudioSegment) => {
-            const existingIndex = acc.findIndex(s => s.id === segment.id);
-            if (existingIndex >= 0) {
-              acc[existingIndex] = { ...acc[existingIndex], ...segment };
-            } else {
-              acc.push(segment);
-            }
-            return acc;
-          }, [])
-        )
-      ),
-      // Skicka till Berget AI
-      mergeMap(segments => this.processSegmentsWithBerget(segments))
-    );
-
-    // Prenumerera på Berget-bearbetning och uppdatera segment
-    bergetProcessingStream$.subscribe(updatedSegments => {
-      updatedSegments.forEach(segment => {
-        this.segmentSubject.next(segment);
-      });
     });
   }
 
-  private processSegmentsWithBerget(segments: AudioSegment[]): Observable<AudioSegment[]> {
-    const segmentsToProcess = segments.filter(s => 
-      s.source === 'webspeech' && 
-      s.audioData && 
-      !s.isProcessing &&
-      (s.retryCount || 0) < 3
-    );
-
-    if (segmentsToProcess.length === 0) {
-      return of(segments);
+  /**
+   * Skapar en ström för ett enskilt segment som börjar med webspeech
+   * och sedan försöker förbättra med Berget AI
+   */
+  private createSegmentStream(initialSegment: AudioSegment): Observable<AudioSegment> {
+    const segmentId = initialSegment.id;
+    
+    // Om vi redan har en ström för detta segment, returnera den
+    if (this.segmentStreams.has(segmentId)) {
+      return this.segmentStreams.get(segmentId)!;
     }
 
-    // Markera segment som bearbetas
-    const processingSegments = segments.map(s => 
-      segmentsToProcess.some(ps => ps.id === s.id) 
-        ? { ...s, isProcessing: true }
-        : s
-    );
-
-    // Bearbeta varje segment parallellt
-    const bergetRequests$ = segmentsToProcess.map(segment =>
-      this.transcribeWithBerget(segment).pipe(
-        catchError(error => {
-          console.error(`Berget transcription failed for segment ${segment.id}:`, error);
-          // Returnera ursprungligt segment med ökat retry-antal
-          return of({
-            ...segment,
-            retryCount: (segment.retryCount || 0) + 1,
-            isProcessing: false
-          });
-        })
-      )
-    );
-
-    if (bergetRequests$.length === 0) {
-      return of(processingSegments);
-    }
-
-    return merge(...bergetRequests$).pipe(
-      scan((acc: AudioSegment[], updatedSegment: AudioSegment) => {
-        const index = acc.findIndex(s => s.id === updatedSegment.id);
-        if (index >= 0) {
-          acc[index] = updatedSegment;
+    // Skapa en ny segment-ström
+    const segmentStream$ = of(initialSegment).pipe(
+      // Börja med det ursprungliga segmentet
+      startWith(initialSegment),
+      
+      // Om det är ett webspeech-segment med audioData, försök förbättra med Berget
+      switchMap(segment => {
+        if (segment.source === 'webspeech' && segment.audioData && (segment.retryCount || 0) < 3) {
+          return of(segment).pipe(
+            // Markera som bearbetas
+            map(s => ({ ...s, isProcessing: true })),
+            
+            // Skicka till Berget AI
+            switchMap(processingSegment => 
+              this.transcribeWithBerget(processingSegment).pipe(
+                // Vid framgång, returnera förbättrat segment
+                map(improvedSegment => ({ ...improvedSegment, isProcessing: false })),
+                
+                // Vid fel, returnera ursprungligt segment med ökat retry-antal
+                catchError(error => {
+                  console.error(`Berget transcription failed for segment ${segmentId}:`, error);
+                  return of({
+                    ...processingSegment,
+                    retryCount: (processingSegment.retryCount || 0) + 1,
+                    isProcessing: false
+                  });
+                }),
+                
+                // Börja med processing-segmentet så UI:t uppdateras direkt
+                startWith(processingSegment)
+              )
+            )
+          );
+        } else {
+          // Returnera segmentet som det är om det inte ska bearbetas
+          return of(segment);
         }
-        return acc;
-      }, processingSegments),
-      // Vänta tills alla requests är klara
-      filter((_, index) => index === bergetRequests$.length - 1),
-      map(finalSegments => finalSegments)
+      }),
+      
+      // Dela strömmen så flera prenumeranter kan använda samma resultat
+      shareReplay(1)
     );
+
+    // Spara strömmen för framtida användning
+    this.segmentStreams.set(segmentId, segmentStream$);
+    
+    return segmentStream$;
   }
 
   private transcribeWithBerget(segment: AudioSegment): Observable<AudioSegment> {
     if (!segment.audioData) {
-      return throwError(new Error('Ingen audiodata tillgänglig'));
+      return throwError(() => new Error('Ingen audiodata tillgänglig'));
     }
 
-    return new Observable(observer => {
+    return new Observable<AudioSegment>(observer => {
       this.bergetApi.transcribeAudio(segment.audioData!)
         .then(result => {
           const improvedSegment: AudioSegment = {
@@ -232,9 +201,13 @@ export class TranscriptionQueue {
           observer.error(error);
         });
     }).pipe(
+      // Använd RxJS inbyggda retry-funktionalitet med exponential backoff
       retry({
         count: 2,
-        delay: (error, retryCount) => timer(Math.pow(2, retryCount) * 1000)
+        delay: (error, retryCount) => {
+          console.log(`Retry attempt ${retryCount} for segment ${segment.id} after error:`, error.message);
+          return timer(Math.pow(2, retryCount) * 1000);
+        }
       })
     );
   }
@@ -256,7 +229,7 @@ export class TranscriptionQueue {
       ...segment,
       timestamp: new Date()
     };
-    this.segmentSubject.next(fullSegment);
+    this.segmentInputSubject.next(fullSegment);
   }
 
   updateSegment(segmentId: string, updates: Partial<AudioSegment>): void {
@@ -265,7 +238,8 @@ export class TranscriptionQueue {
     
     if (segment) {
       const updatedSegment = { ...segment, ...updates };
-      this.segmentSubject.next(updatedSegment);
+      // Skapa en ny ström för det uppdaterade segmentet
+      this.segmentInputSubject.next(updatedSegment);
     }
   }
 
@@ -282,12 +256,16 @@ export class TranscriptionQueue {
     const segment = currentState.segments.find(s => s.id === segmentId);
     
     if (segment && segment.source === 'webspeech') {
+      // Ta bort den gamla strömmen så en ny kan skapas
+      this.segmentStreams.delete(segmentId);
+      
       const retrySegment: AudioSegment = {
         ...segment,
-        retryCount: (segment.retryCount || 0) + 1,
-        isProcessing: false
+        retryCount: 0, // Återställ retry count för ny försök
+        isProcessing: false,
+        source: 'webspeech' // Säkerställ att det behandlas som webspeech igen
       };
-      this.segmentSubject.next(retrySegment);
+      this.segmentInputSubject.next(retrySegment);
     }
   }
 
@@ -301,8 +279,8 @@ export class TranscriptionQueue {
   }
 
   destroy(): void {
-    this.segmentSubject.complete();
+    this.segmentInputSubject.complete();
     this.stateSubject.complete();
-    this.windowTrigger.complete();
+    this.segmentStreams.clear();
   }
 }
