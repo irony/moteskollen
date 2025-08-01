@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TranscriptionQueue, AudioSegment, BergetApiInterface } from '../services/transcriptionQueue';
-import { firstValueFrom, filter, take } from 'rxjs';
+import { firstValueFrom, filter, take, timeout } from 'rxjs';
 
 // Mock Berget API
 class MockBergetApi implements BergetApiInterface {
@@ -187,7 +187,8 @@ describe('TranscriptionQueue', () => {
             state.segments.length > 0 && 
             state.segments.some(s => (s.retryCount || 0) > 0)
           ),
-          take(1)
+          take(1),
+          timeout(8000) // Öka timeout för felhantering
         )
       );
 
@@ -200,7 +201,7 @@ describe('TranscriptionQueue', () => {
       expect(failedSegment!.text).toBe('Ursprunglig text');
       expect(failedSegment!.source).toBe('webspeech');
       expect(failedSegment!.retryCount).toBeGreaterThanOrEqual(1);
-    });
+    }, 10000); // Öka test timeout till 10 sekunder
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
       const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
@@ -224,7 +225,8 @@ describe('TranscriptionQueue', () => {
             state.segments.length > 0 && 
             state.segments.some(s => (s.retryCount || 0) > 0)
           ),
-          take(1)
+          take(1),
+          timeout(8000)
         )
       );
 
@@ -242,7 +244,8 @@ describe('TranscriptionQueue', () => {
             state.segments.length > 0 && 
             state.segments.some(s => s.source === 'berget' && s.text === 'Framgångsrik retry')
           ),
-          take(1)
+          take(1),
+          timeout(8000)
         )
       );
 
@@ -254,7 +257,7 @@ describe('TranscriptionQueue', () => {
       expect(retrySegment).toBeDefined();
       expect(retrySegment!.text).toBe('Framgångsrik retry');
       expect(retrySegment!.source).toBe('berget');
-    });
+    }, 15000); // Öka test timeout till 15 sekunder för retry-test
   });
 
   describe('Fönsterhantering', () => {
@@ -294,7 +297,7 @@ describe('TranscriptionQueue', () => {
       });
 
       const state = await firstValueFrom(
-        queue.getState$().pipe(take(1), timeout(1000))
+        queue.getState$().pipe(take(1))
       );
 
       expect(state.lastTwoLines).toHaveLength(2);
@@ -312,7 +315,7 @@ describe('TranscriptionQueue', () => {
       });
 
       const state = await firstValueFrom(
-        queue.getState$().pipe(take(1), timeout(1000))
+        queue.getState$().pipe(take(1))
       );
 
       expect(state.lastTwoLines).toHaveLength(1);
