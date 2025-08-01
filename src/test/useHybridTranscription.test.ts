@@ -96,9 +96,11 @@ describe('useHybridTranscription', () => {
           length: 1
         }
       ],
-      resultIndex: 0,
-      results: { length: 1 }
+      resultIndex: 0
     };
+    
+    // Lägg till results som en array-liknande struktur
+    (interimEvent as any).results.length = 1;
 
     act(() => {
       if (mockRecognition.onresult) {
@@ -220,9 +222,11 @@ describe('useHybridTranscription', () => {
           length: 1
         }
       ],
-      resultIndex: 0,
-      results: { length: 1 }
+      resultIndex: 0
     };
+    
+    // Lägg till results som en array-liknande struktur
+    (finalEvent as any).results.length = 1;
 
     act(() => {
       if (mockRecognition.onresult) {

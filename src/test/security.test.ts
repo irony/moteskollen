@@ -30,25 +30,20 @@ describe('SecurityService', () => {
       const testToken = 'test-token-123';
       
       // Mock localStorage för detta test
-      const mockGetItem = vi.fn();
-      const mockSetItem = vi.fn();
+      const mockStorage = new Map<string, string>();
+      const mockGetItem = vi.fn((key: string) => mockStorage.get(key) || null);
+      const mockSetItem = vi.fn((key: string, value: string) => mockStorage.set(key, value));
+      const mockRemoveItem = vi.fn((key: string) => mockStorage.delete(key));
+      const mockClear = vi.fn(() => mockStorage.clear());
       
       Object.defineProperty(window, 'localStorage', {
         value: {
           getItem: mockGetItem,
           setItem: mockSetItem,
-          removeItem: vi.fn(),
-          clear: vi.fn(),
+          removeItem: mockRemoveItem,
+          clear: mockClear,
         },
         writable: true,
-      });
-      
-      // Simulera att token sparas och hämtas
-      mockSetItem.mockImplementation((key, value) => {
-        if (key === 'test_key') {
-          const tokenData = JSON.parse(value);
-          mockGetItem.mockReturnValue(value);
-        }
       });
       
       securityService.setSecureToken('test_key', testToken);
@@ -58,12 +53,42 @@ describe('SecurityService', () => {
     });
 
     it('ska returnera null för icke-existerande tokens', () => {
+      // Säkerställ att localStorage är tom för detta test
+      const mockStorage = new Map<string, string>();
+      const mockGetItem = vi.fn((key: string) => mockStorage.get(key) || null);
+      
+      Object.defineProperty(window, 'localStorage', {
+        value: {
+          getItem: mockGetItem,
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+          clear: vi.fn(),
+        },
+        writable: true,
+      });
+      
       const retrieved = securityService.getSecureToken('non_existent_key');
       
       expect(retrieved).toBeNull();
     });
 
     it('ska kunna ta bort tokens', () => {
+      // Mock localStorage för detta test
+      const mockStorage = new Map<string, string>();
+      const mockGetItem = vi.fn((key: string) => mockStorage.get(key) || null);
+      const mockSetItem = vi.fn((key: string, value: string) => mockStorage.set(key, value));
+      const mockRemoveItem = vi.fn((key: string) => mockStorage.delete(key));
+      
+      Object.defineProperty(window, 'localStorage', {
+        value: {
+          getItem: mockGetItem,
+          setItem: mockSetItem,
+          removeItem: mockRemoveItem,
+          clear: vi.fn(),
+        },
+        writable: true,
+      });
+      
       securityService.setSecureToken('test_key', 'test-token');
       securityService.removeSecureToken('test_key');
       
