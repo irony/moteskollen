@@ -31,7 +31,8 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  Circle
+  Circle,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { bergetApi } from '@/services/bergetApi';
@@ -47,12 +48,17 @@ interface Meeting {
   id: string;
   date: Date;
   title: string;
-  status: 'recording' | 'processing' | 'completed';
+  status: 'recording' | 'processing' | 'completed' | 'error';
   duration?: number;
   summary?: string;
   actionItems?: string[];
   originalTranscription?: string;
   templateType?: string;
+  processingProgress?: number;
+  processingStartTime?: number;
+  estimatedProcessingTime?: number;
+  processingError?: string;
+  retryCount?: number;
 }
 
 interface MeetingListProps {
@@ -75,6 +81,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [retryingMeeting, setRetryingMeeting] = useState<string | null>(null);
   
   const { toast } = useToast();
 
@@ -164,6 +171,8 @@ export const MeetingList: React.FC<MeetingListProps> = ({
         return <Loader2 className="w-3 h-3 text-orange-500 animate-spin" />;
       case 'completed':
         return <CheckCircle className="w-3 h-3 text-green-500" />;
+      case 'error':
+        return <AlertCircle className="w-3 h-3 text-red-500" />;
       default:
         return <AlertCircle className="w-3 h-3 text-gray-500" />;
     }
@@ -177,6 +186,8 @@ export const MeetingList: React.FC<MeetingListProps> = ({
         return 'Bearbetar';
       case 'completed':
         return 'Klart';
+      case 'error':
+        return 'Fel';
       default:
         return 'Okänt';
     }
@@ -187,6 +198,118 @@ export const MeetingList: React.FC<MeetingListProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatProcessingTime = (minutes: number) => {
+    if (minutes < 1) return '< 1 min';
+    if (minutes < 60) return `${Math.round(minutes)} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return `${hours}h ${mins}min`;
+  };
+
+  const calculateProcessingProgress = (meeting: Meeting): { progress: number; timeElapsed: number; timeRemaining: number } => {
+    if (!meeting.processingStartTime || !meeting.estimatedProcessingTime) {
+      return { progress: 0, timeElapsed: 0, timeRemaining: 0 };
+    }
+
+    const timeElapsed = (Date.now() - meeting.processingStartTime) / 1000 / 60; // minuter
+    const progress = Math.min(95, (timeElapsed / meeting.estimatedProcessingTime) * 100);
+    const timeRemaining = Math.max(0, meeting.estimatedProcessingTime - timeElapsed);
+
+    return { progress, timeElapsed, timeRemaining };
+  };
+
+  const retryProcessing = async (meeting: Meeting) => {
+    if (!meeting.originalTranscription) {
+      toast({
+        title: "Kan inte försöka igen",
+        description: "Ingen originaldata att bearbeta.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setRetryingMeeting(meeting.id);
+
+    try {
+      // Uppdatera mötet till processing-status igen
+      const retryCount = (meeting.retryCount || 0) + 1;
+      const updatedMeeting: Meeting = {
+        ...meeting,
+        status: 'processing',
+        processingStartTime: Date.now(),
+        processingProgress: 0,
+        processingError: undefined,
+        retryCount
+      };
+
+      const updatedMeetings = meetings.map(m => 
+        m.id === meeting.id ? updatedMeeting : m
+      );
+      setMeetings(updatedMeetings);
+      localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+
+      // Simulera progress
+      const progressInterval = setInterval(() => {
+        setMeetings(prev => prev.map(m => {
+          if (m.id === meeting.id && m.status === 'processing') {
+            const { progress } = calculateProcessingProgress(m);
+            return { ...m, processingProgress: progress };
+          }
+          return m;
+        }));
+      }, 2000);
+
+      // Försök bearbeta igen med Berget AI
+      const { bergetApi } = await import('@/services/bergetApi');
+      const result = await bergetApi.summarizeToProtocol(meeting.originalTranscription);
+
+      clearInterval(progressInterval);
+
+      // Uppdatera med framgångsrikt resultat
+      const completedMeeting: Meeting = {
+        ...updatedMeeting,
+        status: 'completed',
+        summary: result.summary,
+        actionItems: result.action_items,
+        processingProgress: 100
+      };
+
+      const finalMeetings = meetings.map(m => 
+        m.id === meeting.id ? completedMeeting : m
+      );
+      setMeetings(finalMeetings);
+      localStorage.setItem('meetings', JSON.stringify(finalMeetings));
+
+      toast({
+        title: "Bearbetning lyckades",
+        description: "Mötet har nu bearbetats framgångsrikt."
+      });
+
+    } catch (error: any) {
+      // Uppdatera med fel-status
+      const errorMeeting: Meeting = {
+        ...meeting,
+        status: 'error',
+        processingError: error.message,
+        retryCount: (meeting.retryCount || 0) + 1
+      };
+
+      const errorMeetings = meetings.map(m => 
+        m.id === meeting.id ? errorMeeting : m
+      );
+      setMeetings(errorMeetings);
+      localStorage.setItem('meetings', JSON.stringify(errorMeetings));
+
+      toast({
+        title: "Bearbetning misslyckades igen",
+        description: error.message,
+        variant: "destructive"
+      });
+    } finally {
+      setRetryingMeeting(null);
+    }
   };
 
   const sortedMeetings = [...meetings].sort((a, b) => {
@@ -414,6 +537,23 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                                 <MessageSquare className="w-4 h-4" />
                               </Button>
                             )}
+
+                            {meeting.status === 'error' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => retryProcessing(meeting)}
+                                disabled={retryingMeeting === meeting.id}
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                                title="Försök igen"
+                              >
+                                {retryingMeeting === meeting.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
                             
                             <Button
                               variant="ghost"
@@ -437,8 +577,80 @@ export const MeetingList: React.FC<MeetingListProps> = ({
                               <span>{formatDuration(meeting.duration)}</span>
                             </div>
                           )}
+                          {meeting.retryCount && meeting.retryCount > 0 && (
+                            <Badge variant="outline" className="text-xs">
+                              Försök {meeting.retryCount}
+                            </Badge>
+                          )}
                         </div>
                       </CardHeader>
+
+                      {/* Progress bar för processing-status */}
+                      {meeting.status === 'processing' && (
+                        <div className="px-6 pb-4">
+                          <div className="space-y-2">
+                            {(() => {
+                              const { progress, timeElapsed, timeRemaining } = calculateProcessingProgress(meeting);
+                              return (
+                                <>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">
+                                      Bearbetar med Berget AI...
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {Math.round(progress)}%
+                                    </span>
+                                  </div>
+                                  <Progress value={progress} className="h-2" />
+                                  <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>
+                                      Tid förfluten: {formatProcessingTime(timeElapsed)}
+                                    </span>
+                                    <span>
+                                      Uppskattad tid kvar: {formatProcessingTime(timeRemaining)}
+                                    </span>
+                                  </div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Felmeddelande för error-status */}
+                      {meeting.status === 'error' && (
+                        <div className="px-6 pb-4">
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                              <div className="space-y-2">
+                                <p><strong>Bearbetning misslyckades:</strong></p>
+                                <p className="text-sm">{meeting.processingError}</p>
+                                <div className="flex items-center space-x-2 mt-3">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => retryProcessing(meeting)}
+                                    disabled={retryingMeeting === meeting.id}
+                                  >
+                                    {retryingMeeting === meeting.id ? (
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4 mr-2" />
+                                    )}
+                                    Försök igen
+                                  </Button>
+                                  {meeting.retryCount && meeting.retryCount > 0 && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Försök {meeting.retryCount}/3
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+                      )}
 
                       {meeting.status === 'completed' && (meeting.summary || meeting.originalTranscription) && (
                         <Collapsible 
