@@ -6,33 +6,9 @@ metadata:
   labels:
     app: moteskollen
   annotations:
-    # Nginx Ingress Controller annotations
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
-    
-    # Security headers
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      add_header X-Frame-Options "DENY" always;
-      add_header X-Content-Type-Options "nosniff" always;
-      add_header X-XSS-Protection "1; mode=block" always;
-      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-      add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
-      add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.berget.ai; frame-src 'none'; object-src 'none';" always;
-    
-    # Rate limiting
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
-    
-    # Cert-manager för automatiska TLS-certifikat
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    
-    # FluxCD annotations
-    fluxcd.io/automated: "true"
-    fluxcd.io/tag.moteskollen: "glob:main-*"
-
 spec:
   ingressClassName: nginx
   tls:
