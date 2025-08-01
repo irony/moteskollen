@@ -1,5 +1,5 @@
 # Multi-stage build för optimal bildstorlek
-FROM node:18-alpine AS builder
+FROM node:lts-alpine AS builder
 
 # Sätt arbetskatalog
 WORKDIR /app
