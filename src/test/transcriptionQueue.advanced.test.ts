@@ -118,15 +118,16 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       });
 
       // Avancera fake timers för att trigga async operationer
-      vi.advanceTimersByTime(200);
+      vi.advanceTimersByTime(100);
 
-      // Vänta på att segmenteringen ska ske
+      // Vänta på att segmenteringen ska sce med kortare timeout
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => {
+            console.log(`Segments: ${state.segments.length}, expected: ${expectedSegments}`);
             return state.segments.length >= expectedSegments;
           }),
-          timeout(1000), // Kortare timeout med fake timers
+          timeout(500), // Mycket kortare timeout
           take(1)
         )
       );
