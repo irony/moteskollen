@@ -369,9 +369,10 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         audioData: new Blob([`rapid${i}`], { type: 'audio/webm' })
       }));
 
-      // Sätt upp mock-svar för alla segment med enklare nycklar
+      // Sätt upp mock-svar för alla segment med blob-storlek som nyckel
       rapidSegments.forEach((seg, i) => {
-        mockApi.setResponse(`rapid${i}-${i + 1}`, { 
+        const blobSize = new Blob([`rapid${i}`], { type: 'audio/webm' }).size;
+        mockApi.setResponse(`${blobSize}-${i + 1}`, { 
           text: `Berget: ${seg.text}`, 
           delay: 50
         });
