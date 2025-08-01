@@ -2,28 +2,20 @@ import {
   Subject, 
   BehaviorSubject, 
   Observable, 
-  merge, 
-  timer, 
-  EMPTY,
+  timer,
   of,
   throwError,
-  from,
-  pipe
+  from
 } from 'rxjs';
 import { 
   map, 
   scan, 
   mergeMap, 
   catchError, 
-  retry, 
-  delay,
-  tap,
-  filter,
+  retry,
   distinctUntilChanged,
   shareReplay,
-  startWith,
-  switchMap,
-  concatMap
+  startWith
 } from 'rxjs/operators';
 
 export interface AudioSegment {
@@ -50,16 +42,6 @@ export interface BergetApiInterface {
   transcribeAudio(audioBlob: Blob): Promise<{ text: string }>;
 }
 
-// Higher-order functions för retry-logik
-const createRetryStrategy = (maxRetries: number = 2) => 
-  retry({
-    count: maxRetries,
-    delay: (error, retryCount) => {
-      console.log(`Retry attempt ${retryCount} after error:`, error.message);
-      return timer(Math.pow(2, retryCount) * 1000);
-    }
-  });
-
 // Ren funktion för att skapa Berget AI-anrop med pipe-arkitektur
 const createBergetTranscription = (bergetApi: BergetApiInterface) => 
   (segment: AudioSegment): Observable<AudioSegment> => {
@@ -67,20 +49,17 @@ const createBergetTranscription = (bergetApi: BergetApiInterface) =>
       return throwError(() => new Error('Ingen audiodata tillgänglig'));
     }
 
-    // Elegant pipe-baserad transcription pipeline
-    const transcribeWithBerget = pipe(
-      map((audio: Blob) => audio), // Konvertera till rätt format om nödvändigt
-      mergeMap((wav: Blob) => from(bergetApi.transcribeAudio(wav))),
-      createRetryStrategy(2),
-      map((result: { text: string }) => result.text),
-      map((text: string) => cleanBergetText(text))
-    );
-
-    return of(segment.audioData).pipe(
-      transcribeWithBerget,
-      map(cleanedText => ({
+    return from(bergetApi.transcribeAudio(segment.audioData)).pipe(
+      retry({
+        count: 2,
+        delay: (error, retryCount) => {
+          console.log(`Retry attempt ${retryCount} for segment ${segment.id} after error:`, error.message);
+          return timer(Math.pow(2, retryCount) * 1000);
+        }
+      }),
+      map(result => ({
         ...segment,
-        text: cleanedText,
+        text: cleanBergetText(result.text),
         source: 'berget' as const,
         confidence: 0.95,
         isProcessing: false

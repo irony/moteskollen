@@ -187,24 +187,6 @@
     box-shadow: var(--shadow-neu-inset), 0 0 0 2px hsl(var(--primary));
   }
 
-  /* Legacy Apple styles for compatibility */
-  .apple-card {
-    @apply neu-card;
-  }
-
-  .apple-glass {
-    @apply bg-background/80 backdrop-blur-lg border-border/30 rounded-2xl;
-    box-shadow: var(--shadow-neu-float);
-  }
-
-  .apple-button {
-    @apply neu-button;
-  }
-
-  .apple-button-outline {
-    @apply border-border/50 bg-transparent text-foreground hover:bg-muted/50 rounded-2xl font-medium;
-    transition: var(--transition-smooth);
-  }
 
   /* Neumorphic shadows utility classes */
   .shadow-neu-outset {
