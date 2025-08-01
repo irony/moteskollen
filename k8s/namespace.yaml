@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: moteskollen
+  labels:
+    name: moteskollen
+    app.kubernetes.io/name: moteskollen
+    app.kubernetes.io/part-of: berget-platform

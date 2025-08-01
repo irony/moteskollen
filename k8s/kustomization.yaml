@@ -1,0 +1,37 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: moteskollen
+  namespace: moteskollen
+
+resources:
+- namespace.yaml
+- deployment.yaml
+- service.yaml
+- ingress.yaml
+- hpa.yaml
+- networkpolicy.yaml
+
+commonLabels:
+  app.kubernetes.io/name: moteskollen
+  app.kubernetes.io/part-of: berget-platform
+  app.kubernetes.io/managed-by: flux
+
+images:
+- name: ghcr.io/berget-ai/moteskollen
+  newTag: latest
+
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: moteskollen
+    namespace: moteskollen
+  spec:
+    template:
+      metadata:
+        annotations:
+          fluxcd.io/automated: "true"
+          fluxcd.io/tag.moteskollen: "glob:main-*"

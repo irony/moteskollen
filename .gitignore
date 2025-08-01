@@ -23,3 +23,29 @@ dist-ssr
 *.sln
 *.sw?
 .aider*
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Kubernetes secrets (om de skulle skapas lokalt)
+k8s/secrets/
+*.secret.yaml
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini

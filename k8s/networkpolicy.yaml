@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: moteskollen-netpol
+  namespace: moteskollen
+  labels:
+    app: moteskollen
+spec:
+  podSelector:
+    matchLabels:
+      app: moteskollen
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 80
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 80
+  egress:
+  # Tillåt DNS-upplösning
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Tillåt HTTPS till Berget AI API
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Tillåt HTTP för hälsokontroller
+  - to:
+    - podSelector:
+        matchLabels:
+          app: moteskollen
+    ports:
+    - protocol: TCP
+      port: 80
