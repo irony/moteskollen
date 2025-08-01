@@ -76,8 +76,8 @@ export const BergetAuthDialog: React.FC<BergetAuthDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-full flex items-center justify-center">
-            <Key className="w-8 h-8 text-primary-foreground" />
+          <div className="mx-auto w-16 h-16 flex items-center justify-center">
+            <img src="/logo.svg" alt="Möteskollen" className="w-16 h-16" />
           </div>
           <div>
             <DialogTitle className="text-2xl">{title}</DialogTitle>
