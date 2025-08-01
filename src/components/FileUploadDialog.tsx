@@ -301,18 +301,14 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
           >
             <FileAudio className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-medium mb-2">
-              Dra och släpp ljudfiler här
+              Dra och släpp inspelning här
             </h3>
-            <p className="text-muted-foreground mb-4">
-              eller klicka för att välja filer
-            </p>
             <Button onClick={() => fileInputRef.current?.click()}>
               Välj filer
             </Button>
             
             <div className="mt-4 text-sm text-muted-foreground">
               <p>Stödda format: MP3, M4A, WAV, AAC, OGG</p>
-              <p>Max filstorlek: 500MB per fil</p>
             </div>
           </div>
 
