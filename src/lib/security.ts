@@ -191,7 +191,7 @@ export class SecurityService {
 
   // Validate file uploads
   validateFileUpload(file: File): { valid: boolean; error?: string } {
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 100 * 1024 * 1024; // 100MB
     const allowedTypes = [
       'application/pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -208,7 +208,7 @@ export class SecurityService {
     ];
 
     if (file.size > maxSize) {
-      return { valid: false, error: 'Filen är för stor. Maximal storlek är 10MB.' };
+      return { valid: false, error: 'Filen är för stor. Maximal storlek är 100MB.' };
     }
 
     if (!allowedTypes.includes(file.type)) {
