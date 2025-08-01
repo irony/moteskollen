@@ -179,15 +179,28 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
-      // Vänta på att fel ska hanteras
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Vänta på att segmentet ska läggas till och sedan hanteras
+      let finalState;
+      let attempts = 0;
+      const maxAttempts = 15;
 
-      const state = queue.getCurrentState();
+      while (attempts < maxAttempts) {
+        const state = queue.getCurrentState();
+        if (state.segments.length > 0) {
+          // Vänta lite till för att se om retry count uppdateras
+          await new Promise(resolve => setTimeout(resolve, 200));
+          finalState = queue.getCurrentState();
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+        attempts++;
+      }
 
-      expect(state.segments).toHaveLength(1);
-      expect(state.segments[0].text).toBe('Ursprunglig text');
-      expect(state.segments[0].source).toBe('webspeech');
-      expect(state.segments[0].retryCount).toBe(1);
+      expect(finalState).toBeDefined();
+      expect(finalState!.segments).toHaveLength(1);
+      expect(finalState!.segments[0].text).toBe('Ursprunglig text');
+      expect(finalState!.segments[0].source).toBe('webspeech');
+      expect(finalState!.segments[0].retryCount).toBe(1);
     });
 
     it('ska kunna försöka igen med misslyckade segment', async () => {
