@@ -3,9 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { useTranscriptionQueue } from '../hooks/useTranscriptionQueue';
 
 // Mock bergetApi
+const mockTranscribeAudio = vi.fn().mockResolvedValue({ text: 'Mock transcription' });
 vi.mock('../services/bergetApi', () => ({
-  bergetApi: {
-    transcribeAudio: vi.fn().mockResolvedValue({ text: 'Mock transcription' })
+  bergetApi: mockTranscribeAudio
+}));
+
+// Mock security service
+vi.mock('../lib/security', () => ({
+  securityService: {
+    getSecureToken: vi.fn().mockReturnValue(null),
+    setSecureToken: vi.fn(),
+    removeSecureToken: vi.fn()
   }
 }));
 

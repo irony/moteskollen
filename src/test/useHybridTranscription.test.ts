@@ -3,9 +3,17 @@ import { renderHook, act } from '@testing-library/react';
 import { useHybridTranscription } from '../hooks/useHybridTranscription';
 
 // Mock bergetApi
+const mockTranscribeAudio = vi.fn().mockResolvedValue({ text: 'Berget AI transkribering' });
 vi.mock('../services/bergetApi', () => ({
-  bergetApi: {
-    transcribeAudio: vi.fn().mockResolvedValue({ text: 'Berget AI transkribering' })
+  bergetApi: mockTranscribeAudio
+}));
+
+// Mock security service
+vi.mock('../lib/security', () => ({
+  securityService: {
+    getSecureToken: vi.fn().mockReturnValue(null),
+    setSecureToken: vi.fn(),
+    removeSecureToken: vi.fn()
   }
 }));
 

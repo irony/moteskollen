@@ -52,3 +52,17 @@ Object.defineProperty(window, 'webkitSpeechRecognition', {
     onerror: null,
   })),
 })
+
+// Mock localStorage
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    getItem: vi.fn(() => null),
+    setItem: vi.fn(() => null),
+    removeItem: vi.fn(() => null),
+    clear: vi.fn(() => null),
+  },
+  writable: true,
+})
+
+// Mock fetch globalt för alla tester
+global.fetch = vi.fn()

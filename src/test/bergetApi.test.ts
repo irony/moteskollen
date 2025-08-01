@@ -5,10 +5,23 @@ import { bergetApi } from '../services/bergetApi';
 const mockFetch = vi.fn();
 global.fetch = mockFetch;
 
+// Mock security service för att undvika riktiga localStorage-anrop
+vi.mock('../lib/security', () => ({
+  securityService: {
+    getSecureToken: vi.fn().mockReturnValue(null),
+    setSecureToken: vi.fn(),
+    removeSecureToken: vi.fn(),
+    validateFileUpload: vi.fn().mockReturnValue({ valid: true }),
+    createSafeErrorMessage: vi.fn().mockImplementation((error) => error.message || 'Test error')
+  }
+}));
+
 describe('BergetApi', () => {
   beforeEach(() => {
     mockFetch.mockClear();
     bergetApi.clearApiKey();
+    // Sätt en test API-nyckel för att undvika autentiseringsfel
+    bergetApi.setApiKey('test-api-key');
   });
 
   describe('API Key Management', () => {
@@ -56,14 +69,15 @@ describe('BergetApi', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
-        text: () => Promise.resolve('Unauthorized')
+        text: () => Promise.resolve('{"error": {"message": "Unauthorized"}}'),
+        json: () => Promise.resolve({ error: { message: 'Unauthorized' } })
       });
 
       bergetApi.setApiKey('invalid-key');
       const audioBlob = new Blob(['test audio'], { type: 'audio/webm' });
       
       await expect(bergetApi.transcribeAudio(audioBlob))
-        .rejects.toThrow('Transkribering misslyckades');
+        .rejects.toThrow('API-nyckeln är ogiltig eller har gått ut');
     });
   });
 
