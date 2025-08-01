@@ -71,6 +71,34 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
     return `${hours}h ${mins}min`;
   };
 
+  const processUploadedFile = async (meeting: any, transcription: string) => {
+    try {
+      // Simulera progress
+      const progressInterval = setInterval(() => {
+        // Progress-uppdatering skulle behöva implementeras med state management
+        // som kan nås från denna komponent
+      }, 2000);
+
+      // Bearbeta med Berget AI
+      const { bergetApi } = await import('@/services/bergetApi');
+      const result = await bergetApi.summarizeToProtocol(transcription);
+
+      clearInterval(progressInterval);
+
+      toast({
+        title: "Bearbetning klar",
+        description: `Filen har bearbetats framgångsrikt.`
+      });
+
+    } catch (error: any) {
+      toast({
+        title: "Bearbetning misslyckades",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  };
+
   const addFilesToQueue = (files: File[]) => {
     const validFiles = files.filter(file => {
       if (!supportedFormats.includes(file.type)) {
