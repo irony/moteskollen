@@ -44,11 +44,11 @@ class AdvancedMockBergetApi implements BergetApiInterface {
       }
     }
     
-    // Simulera realistisk bearbetningstid men kortare för tester
-    const baseDelay = Math.random() * 200 + 100; // 100-300ms för snabbare tester
+    // Använd fake timers istället för riktiga delays
+    const baseDelay = response?.delay || errorData?.delay || 100;
     
     if (errorData) {
-      await new Promise(resolve => setTimeout(resolve, errorData.delay || baseDelay));
+      await new Promise(resolve => setTimeout(resolve, baseDelay));
       throw errorData.error;
     }
 
@@ -56,7 +56,7 @@ class AdvancedMockBergetApi implements BergetApiInterface {
       response = { text: `Mock transcription ${this.callCount}` };
     }
     
-    await new Promise(resolve => setTimeout(resolve, response.delay || baseDelay));
+    await new Promise(resolve => setTimeout(resolve, baseDelay));
     
     return { text: response.text };
   }
@@ -77,6 +77,7 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
   let mockApi: AdvancedMockBergetApi;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     mockApi = new AdvancedMockBergetApi();
     queue = new TranscriptionQueue(mockApi);
   });
@@ -84,6 +85,7 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
   afterEach(() => {
     queue.destroy();
     mockApi.clear();
+    vi.useRealTimers();
   });
 
   describe('Scenario 1: Kontinuerligt tal utan pauser', () => {
@@ -100,7 +102,7 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
       for (let i = 1; i <= 10; i++) {
         mockApi.setResponse(`${i}`, { 
           text: `Berget chunk ${i}: ${Array.from({ length: Math.min(wordsPerSegment, 12) }, (_, j) => `ord${j + 1}`).join(' ')}`,
-          delay: 50 // Kortare delay
+          delay: 50
         });
       }
 
@@ -115,15 +117,16 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         audioData: new Blob(['long audio'], { type: 'audio/webm' })
       });
 
+      // Avancera fake timers för att trigga async operationer
+      vi.advanceTimersByTime(200);
+
       // Vänta på att segmenteringen ska ske
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => {
-            // Kontrollera att vi har fått segment som är längre än ursprungstexten
-            // (eftersom chunks kommer att läggas till)
             return state.segments.length >= expectedSegments;
           }),
-          timeout(3000), // Kortare timeout
+          timeout(1000), // Kortare timeout med fake timers
           take(1)
         )
       );
@@ -158,10 +161,13 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         });
       }, 100);
 
+      // Avancera timers för att trigga setTimeout
+      vi.advanceTimersByTime(150);
+
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => state.segments.length >= 2),
-          timeout(3000),
+          timeout(1000),
           take(1)
         )
       );
@@ -175,8 +181,8 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
   describe('Scenario 2: Paus i ljud medan Berget bearbetar', () => {
     it('ska hantera ny audio medan tidigare segment bearbetas', async () => {
       // Sätt upp långsam bearbetning för första segmentet
-      mockApi.setResponse('100-1', { text: 'Första segmentet färdigt', delay: 2000 });
-      mockApi.setResponse('200-2', { text: 'Andra segmentet färdigt', delay: 500 });
+      mockApi.setResponse('100-1', { text: 'Första segmentet färdigt', delay: 1000 });
+      mockApi.setResponse('200-2', { text: 'Andra segmentet färdigt', delay: 200 });
 
       // Första segmentet - börjar bearbetas
       queue.addSegment({
@@ -202,13 +208,16 @@ describe('TranscriptionQueue - Avancerade Scenarier', () => {
         });
       }, 200);
 
+      // Avancera timers för att trigga båda segmenten
+      vi.advanceTimersByTime(1200);
+
       // Vänta på att båda segmenten ska vara klara
       const finalState = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => 
             state.segments.filter(s => s.source === 'berget').length >= 2
           ),
-          timeout(5000),
+          timeout(1000),
           take(1)
         )
       );

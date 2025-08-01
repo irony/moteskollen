@@ -38,6 +38,7 @@ describe('TranscriptionQueue', () => {
   let mockApi: MockBergetApi;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     mockApi = new MockBergetApi();
     queue = new TranscriptionQueue(mockApi);
   });
@@ -45,6 +46,7 @@ describe('TranscriptionQueue', () => {
   afterEach(() => {
     queue.destroy();
     mockApi.clear();
+    vi.useRealTimers();
   });
 
   describe('Grundläggande funktionalitet', () => {
@@ -222,8 +224,11 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
+      // Avancera fake timers för att trigga async operationer
+      vi.advanceTimersByTime(100);
+      
       // Vänta lite för att låta RxJS-strömmen bearbeta
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       subscription.unsubscribe();
 
@@ -264,8 +269,8 @@ describe('TranscriptionQueue', () => {
 
       queue.addSegment(segment);
 
-      // Vänta lite för första bearbetning
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // Avancera fake timers för första bearbetning
+      vi.advanceTimersByTime(50);
 
       // Sätt upp framgångsrikt svar för retry
       mockApi.clear();
@@ -279,8 +284,8 @@ describe('TranscriptionQueue', () => {
 
       queue.retrySegment('test-1');
 
-      // Vänta på retry-bearbetning
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Avancera fake timers för retry-bearbetning
+      vi.advanceTimersByTime(100);
 
       retrySubscription.unsubscribe();
 
