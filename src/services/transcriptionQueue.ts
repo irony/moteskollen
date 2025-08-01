@@ -268,10 +268,13 @@ export class TranscriptionQueue {
       mergeMap(segment => {
         const wordCount = countWords(segment.text);
         if (wordCount > this.maxWordsPerSegment && segment.source === 'webspeech') {
-          return from(segmentLongText(segment, this.maxWordsPerSegment));
+          const chunks = segmentLongText(segment, this.maxWordsPerSegment);
+          console.log(`Segmenterade ${wordCount} ord i ${chunks.length} chunks`);
+          return from(chunks);
         }
         return of({ ...segment, wordCount });
       }),
+      tap(segment => console.log(`Bearbetar segment: ${segment.id}, ord: ${segment.wordCount || countWords(segment.text)}`)),
       shareReplay(1)
     );
 
