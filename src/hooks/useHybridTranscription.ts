@@ -140,7 +140,8 @@ export const useHybridTranscription = (
         pendingSegmentId = null;
         currentInterimText = '';
         hasBeenSentToBerget = false;
-        // VIKTIGT: Rensa inte currentSegmentChunksRef här - den behövs för nästa segment
+        // Rensa chunks för detta segment nu när det är klart
+        currentSegmentChunksRef.current = [];
 
       } else {
         // Interim resultat - bygg ihop texten progressivt
@@ -179,10 +180,12 @@ export const useHybridTranscription = (
             console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId, 'Text:', currentInterimText.trim());
             console.log('Chunks tillgängliga för segment:', currentSegmentChunksRef.current.length);
             
-            // Spara audio-chunks för detta segment
+            // Spara audio-chunks för detta segment (bara de senaste chunks för detta segment)
             if (currentSegmentChunksRef.current.length > 0) {
-              segmentAudioRef.current.set(pendingSegmentId, [...currentSegmentChunksRef.current]);
-              console.log('Sparade chunks för segment:', pendingSegmentId, 'Antal:', currentSegmentChunksRef.current.length);
+              // Ta bara de senaste chunks (ungefär 2-3 sekunder värt)
+              const recentChunks = currentSegmentChunksRef.current.slice(-6); // Senaste 3 sekunder
+              segmentAudioRef.current.set(pendingSegmentId, [...recentChunks]);
+              console.log('Sparade chunks för segment:', pendingSegmentId, 'Antal:', recentChunks.length);
             } else {
               console.log('VARNING: Inga chunks att spara för segment:', pendingSegmentId);
             }
@@ -236,26 +239,21 @@ export const useHybridTranscription = (
 
   const sendAudioSegmentToBerget = async (segmentId: string, startTime: number, endTime: number) => {
     try {
+      // Kontrollera om vi redan skickat detta segment
+      if (sentSegmentsRef.current.has(segmentId)) {
+        console.log('Segment redan skickat till Berget:', segmentId);
+        return;
+      }
+
       console.log(`Försöker skicka segment ${segmentId} till Berget AI...`);
+      
+      // Markera som skickat direkt för att undvika dubbletter
+      sentSegmentsRef.current.add(segmentId);
       
       // Hämta audio-chunks för just detta segment
       const segmentChunks = segmentAudioRef.current.get(segmentId);
       if (!segmentChunks || segmentChunks.length === 0) {
-        console.log('Inga audio-chunks för segment:', segmentId, 'Tillgängliga segments:', Array.from(segmentAudioRef.current.keys()));
-        
-        // Fallback: använd de senaste chunks om segment-specifika chunks saknas
-        if (currentSegmentChunksRef.current.length > 0) {
-          console.log('Använder fallback chunks från currentSegmentChunksRef');
-          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
-        } else {
-          console.log('Inga chunks tillgängliga alls');
-          return;
-        }
-      }
-
-      const finalChunks = segmentAudioRef.current.get(segmentId) || [];
-      if (finalChunks.length === 0) {
-        console.log('Fortfarande inga chunks efter fallback');
+        console.log('Inga audio-chunks för segment:', segmentId);
         return;
       }
 
@@ -268,8 +266,8 @@ export const useHybridTranscription = (
       }
 
       // Skapa blob från detta segments chunks
-      const audioBlob = new Blob(finalChunks, { type: 'audio/webm' });
-      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes, ${finalChunks.length} chunks)`);
+      const audioBlob = new Blob(segmentChunks, { type: 'audio/webm' });
+      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes, ${segmentChunks.length} chunks)`);
       
       if (audioBlob.size < 1000) {
         console.log('Audio blob för liten, hoppar över');
@@ -289,6 +287,13 @@ export const useHybridTranscription = (
       // Hoppa över tomma eller meningslösa segment
       if (!cleanText || cleanText.length < 2) {
         console.log('Hoppade över tomt Berget-segment');
+        return;
+      }
+
+      // Kontrollera om vi redan har detta exakta text i något segment
+      const existingText = segments.find(s => s.text.trim() === cleanText.trim());
+      if (existingText) {
+        console.log('Text redan finns i segment, hoppar över duplikat');
         return;
       }
 
@@ -313,7 +318,8 @@ export const useHybridTranscription = (
 
     } catch (err) {
       console.error('Berget transcription error för segment', segmentId, ':', err);
-      // Behåll lokala resultatet vid fel
+      // Ta bort från sent-listan vid fel så vi kan försöka igen
+      sentSegmentsRef.current.delete(segmentId);
     }
   };
 
