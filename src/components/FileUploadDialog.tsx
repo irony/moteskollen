@@ -50,10 +50,10 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
   ];
 
   const estimateProcessingTime = (fileSize: number): number => {
-    // Ungefär 8 minuter för 1 timmes möte (60MB fil)
-    // Så cirka 0.13 minuter per MB
+    // Ungefär 8 minuter för 1 timmes möte (12MB M4A-fil)
+    // Så cirka 0.67 minuter per MB
     const sizeInMB = fileSize / (1024 * 1024);
-    return Math.max(1, Math.round(sizeInMB * 0.13)); // Minst 1 minut
+    return Math.max(2, Math.round(sizeInMB * 0.67)); // Minst 2 minuter
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -156,7 +156,7 @@ export const FileUploadDialog: React.FC<FileUploadDialogProps> = ({
           if (item.id === nextItem.id && item.status === 'processing') {
             const elapsed = (Date.now() - (item.startTime || Date.now())) / 1000 / 60; // minuter
             const estimatedTotal = item.estimatedTime || 1;
-            const newProgress = Math.min(95, (elapsed / estimatedTotal) * 100);
+            const newProgress = Math.min(90, (elapsed / estimatedTotal) * 100);
             return { ...item, progress: newProgress };
           }
           return item;

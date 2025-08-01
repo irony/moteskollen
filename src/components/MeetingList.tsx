@@ -215,7 +215,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
     }
 
     const timeElapsed = (Date.now() - meeting.processingStartTime) / 1000 / 60; // minuter
-    const progress = Math.min(95, (timeElapsed / meeting.estimatedProcessingTime) * 100);
+    const progress = Math.min(90, (timeElapsed / meeting.estimatedProcessingTime) * 100);
     const timeRemaining = Math.max(0, meeting.estimatedProcessingTime - timeElapsed);
 
     return { progress, timeElapsed, timeRemaining };
