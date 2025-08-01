@@ -128,9 +128,10 @@ export const useHybridTranscription = (
         });
 
         // Skicka ljudsegment till Berget AI för förbättring (bara om vi inte redan skickat det)
-        if (transcript.trim().length > 10 && !hasBeenSentToBerget) {
-          console.log('Skickar final segment till Berget:', segmentId);
+        if (transcript.trim().length > 5 && !hasBeenSentToBerget) {
+          console.log('Skickar final segment till Berget:', segmentId, 'Text:', transcript.trim());
           sentSegmentsRef.current.add(segmentId);
+          hasBeenSentToBerget = true;
           sendAudioSegmentToBerget(segmentId, segmentStartTimeRef.current, audioTime);
         }
 
@@ -170,10 +171,10 @@ export const useHybridTranscription = (
           }
         });
 
-        // Sätt timer för att skicka till Berget efter 300ms tystnad
+        // Sätt timer för att skicka till Berget efter 2 sekunder tystnad
         silenceTimerRef.current = setTimeout(() => {
-          if (pendingSegmentId && currentInterimText.trim().length > 10 && !hasBeenSentToBerget) {
-            console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId);
+          if (pendingSegmentId && currentInterimText.trim().length > 5 && !hasBeenSentToBerget) {
+            console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId, 'Text:', currentInterimText.trim());
             
             // Spara audio-chunks för detta segment
             if (currentSegmentChunksRef.current.length > 0) {
@@ -183,7 +184,7 @@ export const useHybridTranscription = (
             hasBeenSentToBerget = true; // Mark as sent to prevent duplicate sends
             sendAudioSegmentToBerget(pendingSegmentId, segmentStartTimeRef.current, audioTime);
           }
-        }, 300);
+        }, 2000);
       }
     };
 
@@ -219,26 +220,55 @@ export const useHybridTranscription = (
 
   const sendAudioSegmentToBerget = async (segmentId: string, startTime: number, endTime: number) => {
     try {
+      console.log(`Försöker skicka segment ${segmentId} till Berget AI...`);
+      
       // Hämta audio-chunks för just detta segment
       const segmentChunks = segmentAudioRef.current.get(segmentId);
       if (!segmentChunks || segmentChunks.length === 0) {
-        console.log('Inga audio-chunks för segment:', segmentId);
+        console.log('Inga audio-chunks för segment:', segmentId, 'Tillgängliga segments:', Array.from(segmentAudioRef.current.keys()));
+        
+        // Fallback: använd de senaste chunks om segment-specifika chunks saknas
+        if (currentSegmentChunksRef.current.length > 0) {
+          console.log('Använder fallback chunks från currentSegmentChunksRef');
+          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
+        } else {
+          console.log('Inga chunks tillgängliga alls');
+          return;
+        }
+      }
+
+      const finalChunks = segmentAudioRef.current.get(segmentId) || [];
+      if (finalChunks.length === 0) {
+        console.log('Fortfarande inga chunks efter fallback');
         return;
       }
 
       const segmentDuration = endTime - startTime;
-      if (segmentDuration < 1) return;
+      console.log(`Segment duration: ${segmentDuration}s`);
+      
+      if (segmentDuration < 0.5) {
+        console.log('Segment för kort, hoppar över');
+        return;
+      }
 
       // Skapa blob från detta segments chunks
-      const audioBlob = new Blob(segmentChunks, { type: 'audio/webm' });
-      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes)`);
+      const audioBlob = new Blob(finalChunks, { type: 'audio/webm' });
+      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes, ${finalChunks.length} chunks)`);
+      
+      if (audioBlob.size < 1000) {
+        console.log('Audio blob för liten, hoppar över');
+        return;
+      }
       
       // Importera bergetApi dynamiskt för att undvika cirkulär import
       const { bergetApi } = await import('@/services/bergetApi');
+      console.log('Anropar bergetApi.transcribeAudio...');
       const result = await bergetApi.transcribeAudio(audioBlob);
+      console.log('Berget AI svar:', result);
 
       // Rensa bort konstiga tecken och tystnadsindikatorer från Berget AI
       const cleanText = cleanBergetText(result.text);
+      console.log('Rensat text från Berget:', cleanText);
       
       // Hoppa över tomma eller meningslösa segment
       if (!cleanText || cleanText.length < 2) {
@@ -258,13 +288,15 @@ export const useHybridTranscription = (
           : segment
       ));
 
+      console.log(`Segment ${segmentId} uppdaterat med Berget AI resultat`);
+
       // Callback för fullständig transkribering
       if (onBergetTranscription) {
         onBergetTranscription(cleanText);
       }
 
     } catch (err) {
-      console.error('Berget transcription error:', err);
+      console.error('Berget transcription error för segment', segmentId, ':', err);
       // Behåll lokala resultatet vid fel
     }
   };
@@ -331,13 +363,14 @@ export const useHybridTranscription = (
 
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
+          console.log('Audio chunk received:', event.data.size, 'bytes');
           audioChunksRef.current.push(event.data);
           // Lägg till chunks till aktuellt segment också
           currentSegmentChunksRef.current.push(event.data);
         }
       };
 
-      mediaRecorderRef.current.start(1000); // Samla data varje sekund
+      mediaRecorderRef.current.start(500); // Samla data varje halv sekund för bättre responsivitet
 
       // Sätt upp Speech Recognition
       if (speechSupported) {
