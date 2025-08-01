@@ -305,7 +305,7 @@ describe('TranscriptionQueue', () => {
 
   describe('Fönsterhantering', () => {
     it('ska gruppera segment i fönster baserat på antal', async () => {
-      // Lägg till 6 segment (över maxWindowSize på 5)
+      // Lägg till 6 segment
       for (let i = 0; i < 6; i++) {
         queue.addSegment({
           id: `test-${i}`,
@@ -319,6 +319,7 @@ describe('TranscriptionQueue', () => {
       const state = await firstValueFrom(
         queue.getState$().pipe(
           filter(state => state.segments.length === 6),
+          timeout(2000), // Kortare timeout
           take(1)
         )
       );
@@ -326,7 +327,7 @@ describe('TranscriptionQueue', () => {
       expect(state.segments).toHaveLength(6);
       expect(state.fullTranscription).toContain('Segment 0');
       expect(state.fullTranscription).toContain('Segment 5');
-    });
+    }, 3000); // Explicit timeout för detta test
   });
 
   describe('Senaste två rader', () => {
