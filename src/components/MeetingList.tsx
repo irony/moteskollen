@@ -38,6 +38,7 @@ import { bergetApi } from '@/services/bergetApi';
 import ReactMarkdown from 'react-markdown';
 import { GlobalSearch } from './GlobalSearch';
 import { HistoryDrawer } from './HistoryDrawer';
+import { FileUploadDialog } from './FileUploadDialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 type ProtocolTemplate = 'standard' | 'agile' | 'board' | 'interview' | 'lecture';
@@ -73,6 +74,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
   const [editingMeeting, setEditingMeeting] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState<string | null>(null);
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -225,6 +227,32 @@ export const MeetingList: React.FC<MeetingListProps> = ({
     onStartRecording?.();
   };
 
+  const handleFileUpload = () => {
+    setIsUploadDialogOpen(true);
+  };
+
+  const handleFileProcessed = (file: File, result: any) => {
+    const newMeeting: Meeting = {
+      id: Date.now().toString(),
+      title: file.name.replace(/\.[^/.]+$/, "") || "Uppladdat möte",
+      date: new Date(),
+      status: 'completed',
+      summary: "",
+      actionItems: [],
+      originalTranscription: result.text,
+      templateType: 'standard'
+    };
+
+    const updatedMeetings = [newMeeting, ...meetings];
+    setMeetings(updatedMeetings);
+    localStorage.setItem('meetings', JSON.stringify(updatedMeetings));
+    
+    toast({
+      title: "Fil bearbetad",
+      description: `${file.name} har transkriberats och lagts till i möteslistan.`
+    });
+  };
+
   return (
     <div className="min-h-screen w-full bg-background/50 bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
@@ -250,7 +278,7 @@ export const MeetingList: React.FC<MeetingListProps> = ({
               <GlobalSearch
                 onShowHistory={() => setIsHistoryOpen(true)}
                 onStartRecording={onStartRecording || (() => {})}
-                onFileUpload={() => {}} // Tom för historik-vyn
+                onFileUpload={handleFileUpload}
                 meetingContext=""
                 meetingsCount={meetings.length}
               />
@@ -503,6 +531,13 @@ export const MeetingList: React.FC<MeetingListProps> = ({
             ))}
           </div>
         )}
+
+        {/* Filuppladdnings Dialog */}
+        <FileUploadDialog
+          isOpen={isUploadDialogOpen}
+          onClose={() => setIsUploadDialogOpen(false)}
+          onFileProcessed={handleFileProcessed}
+        />
       </div>
     </div>
   );
