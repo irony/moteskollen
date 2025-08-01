@@ -89,19 +89,12 @@ export const BergetAuthDialog: React.FC<BergetAuthDialogProps> = ({
 
         <div className="space-y-6">
           {/* GDPR/Säkerhetsinformation */}
-          {showGDPRInfo && (
-            <Alert>
-              <Shield className="h-4 w-4" />
-              <AlertDescription>
-                <strong>100% GDPR-kompatibel</strong><br />
-                All data bearbetas inom Sverige. Inget skickas utanför EU.
-              </AlertDescription>
-            </Alert>
-          )}
+                <strong>Transkribera möten</strong>&nbsp;och samtal
+                med hjälp av Kungliga Biblitekets öppna AI-modell KB-Whisper som kan transkribera tal till text på ett säkert och noggrannt sätt på svenska. För att komma igång 
+                behöver du ett konto på Berget AI. 
 
           {step === 'choice' && (
             <div className="space-y-4">
-              <h3 className="font-semibold">Kom igång med Berget AI</h3>
               
               <Button 
                 onClick={handleDeviceAuth}
