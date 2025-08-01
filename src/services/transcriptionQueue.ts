@@ -66,49 +66,18 @@ export class TranscriptionQueue {
   }
 
   private setupTranscriptionPipeline(): void {
-    // Huvudpipeline för att hantera segment
-    const segmentStream$ = this.segmentSubject.pipe(
-      // Gruppera segment i fönster baserat på timer eller antal
-      windowWhen(() => 
-        merge(
-          timer(this.windowTimeoutMs),
-          this.segmentSubject.pipe(
-            scan((count) => count + 1, 0),
-            filter(count => count >= this.maxWindowSize),
-            map(() => void 0)
-          )
-        )
-      ),
-      // Bearbeta varje fönster av segment
-      mergeMap(window$ => 
-        window$.pipe(
-          scan((acc: AudioSegment[], segment: AudioSegment) => {
-            // Uppdatera befintligt segment eller lägg till nytt
-            const existingIndex = acc.findIndex(s => s.id === segment.id);
-            if (existingIndex >= 0) {
-              acc[existingIndex] = { ...acc[existingIndex], ...segment };
-            } else {
-              acc.push(segment);
-            }
-            return acc;
-          }, [])
-        )
-      ),
-      // Skicka segment till Berget AI för förbättring
-      mergeMap(segments => this.processSegmentsWithBerget(segments)),
-      // Bygg upp det fullständiga transkriptionstillståndet
-      scan((state: TranscriptionState, updatedSegments: AudioSegment[]) => {
-        // Slå samman nya segment med befintliga
+    // Direkt pipeline för att lägga till segment omedelbart
+    const immediateSegmentStream$ = this.segmentSubject.pipe(
+      scan((state: TranscriptionState, newSegment: AudioSegment) => {
+        // Uppdatera befintligt segment eller lägg till nytt
         const allSegments = [...state.segments];
+        const existingIndex = allSegments.findIndex(s => s.id === newSegment.id);
         
-        updatedSegments.forEach(updatedSegment => {
-          const existingIndex = allSegments.findIndex(s => s.id === updatedSegment.id);
-          if (existingIndex >= 0) {
-            allSegments[existingIndex] = updatedSegment;
-          } else {
-            allSegments.push(updatedSegment);
-          }
-        });
+        if (existingIndex >= 0) {
+          allSegments[existingIndex] = { ...allSegments[existingIndex], ...newSegment };
+        } else {
+          allSegments.push(newSegment);
+        }
 
         // Sortera segment efter tidsstämpel
         allSegments.sort((a, b) => a.audioStart - b.audioStart);
@@ -138,9 +107,54 @@ export class TranscriptionQueue {
       shareReplay(1)
     );
 
-    // Prenumerera på strömmen och uppdatera state
-    segmentStream$.subscribe(state => {
+    // Prenumerera på den direkta strömmen och uppdatera state
+    immediateSegmentStream$.subscribe(state => {
       this.stateSubject.next(state);
+    });
+
+    // Separat pipeline för Berget AI-bearbetning
+    const bergetProcessingStream$ = this.segmentSubject.pipe(
+      // Filtrera bara webspeech-segment med audioData
+      filter(segment => 
+        segment.source === 'webspeech' && 
+        !!segment.audioData && 
+        !segment.isProcessing &&
+        (segment.retryCount || 0) < 3
+      ),
+      // Gruppera i fönster för batch-bearbetning
+      windowWhen(() => 
+        merge(
+          timer(this.windowTimeoutMs),
+          this.segmentSubject.pipe(
+            scan((count) => count + 1, 0),
+            filter(count => count >= this.maxWindowSize),
+            map(() => void 0)
+          )
+        )
+      ),
+      // Bearbeta varje fönster
+      mergeMap(window$ => 
+        window$.pipe(
+          scan((acc: AudioSegment[], segment: AudioSegment) => {
+            const existingIndex = acc.findIndex(s => s.id === segment.id);
+            if (existingIndex >= 0) {
+              acc[existingIndex] = { ...acc[existingIndex], ...segment };
+            } else {
+              acc.push(segment);
+            }
+            return acc;
+          }, [])
+        )
+      ),
+      // Skicka till Berget AI
+      mergeMap(segments => this.processSegmentsWithBerget(segments))
+    );
+
+    // Prenumerera på Berget-bearbetning och uppdatera segment
+    bergetProcessingStream$.subscribe(updatedSegments => {
+      updatedSegments.forEach(segment => {
+        this.segmentSubject.next(segment);
+      });
     });
   }
 
