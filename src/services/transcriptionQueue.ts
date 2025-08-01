@@ -116,19 +116,18 @@ const createSegmentStream = (bergetTranscribe: (segment: AudioSegment) => Observ
       const bergetStream$ = bergetTranscribe(initialSegment).pipe(
         catchError(error => {
           console.error(`Berget transcription failed for segment ${initialSegment.id}:`, error);
+          // Returnera fel-segment omedelbart
           return of({
             ...initialSegment,
             retryCount: (initialSegment.retryCount || 0) + 1,
             isProcessing: false
           });
         }),
+        // Säkerställ att vi alltid får ett resultat
+        startWith({ ...initialSegment, isProcessing: true })
       );
       
-      return merge(
-        initialStream$,
-        processingStream$,
-        bergetStream$
-      );
+      return bergetStream$;
     }
     
     return initialStream$;
