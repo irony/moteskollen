@@ -193,7 +193,9 @@ export class SecurityService {
 
   // Remove sensitive information from error messages
   private removeSensitiveInfo(message: string): string {
-    return message
+    const originalMessage = message;
+    
+    const cleanedMessage = message
       // Remove passwords, tokens, keys, etc.
       .replace(/password\s*[=:]\s*[^\s,;]+/gi, 'password=***')
       .replace(/token\s*[=:]\s*[^\s,;]+/gi, 'token=***')
@@ -212,6 +214,13 @@ export class SecurityService {
       .replace(/[0-9a-f]{32,}/gi, '***') // Hex strings (hashes, IDs)
       // Replace with generic error message if too much was removed
       .replace(/^\s*[=:*\s]*$/, 'Ett fel inträffade');
+
+    // If we removed sensitive information, return a generic Swedish error message
+    if (cleanedMessage !== originalMessage && cleanedMessage.includes('***')) {
+      return 'Ett fel inträffade med databasen';
+    }
+    
+    return cleanedMessage;
   }
 
   // Validate file uploads
