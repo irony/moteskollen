@@ -45,7 +45,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useHybridTranscription } from '@/hooks/useHybridTranscription';
 import { useMeetingAnalysis } from '@/hooks/useMeetingAnalysis';
-import { RecordingButton } from './RecordingButton';
+
 import { HybridTranscription } from './HybridTranscription';
 import { ChatInterface } from './ChatInterface';
 import { FooterWithRecording } from './FooterWithRecording';
@@ -165,10 +165,13 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
   const { 
     isRecording, 
+    isPaused,
     audioLevel, 
     segments,
     startRecording, 
     stopRecording,
+    pauseRecording,
+    resumeRecording,
     error: hybridError 
   } = useHybridTranscription(handleBergetTranscription);
 
@@ -587,12 +590,12 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
           {/* Apple-style Footer med inspelningsknapp */}
           <FooterWithRecording
             isRecording={isRecording}
-            isPaused={false}
+            isPaused={isPaused}
             audioLevel={audioLevel}
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
-            onPauseRecording={() => {}}
-            onResumeRecording={() => {}}
+            onPauseRecording={pauseRecording}
+            onResumeRecording={resumeRecording}
             onShowHistory={handleShowHistory}
             onFileUpload={handleFileUpload}
             disabled={isProcessingFile}

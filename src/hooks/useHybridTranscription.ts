@@ -33,10 +33,13 @@ interface TranscriptionSegment {
 
 interface UseHybridTranscriptionResult {
   isRecording: boolean;
+  isPaused: boolean;
   audioLevel: number;
   segments: TranscriptionSegment[];
   startRecording: () => Promise<void>;
   stopRecording: () => Promise<void>;
+  pauseRecording: () => void;
+  resumeRecording: () => void;
   error: string | null;
 }
 
@@ -44,6 +47,7 @@ export const useHybridTranscription = (
   onBergetTranscription?: (text: string) => void
 ): UseHybridTranscriptionResult => {
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [segments, setSegments] = useState<TranscriptionSegment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -490,12 +494,35 @@ export const useHybridTranscription = (
     };
   }, []);
 
+  const pauseRecording = useCallback(() => {
+    setIsPaused(true);
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+    }
+  }, []);
+
+  const resumeRecording = useCallback(() => {
+    setIsPaused(false);
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+    }
+  }, []);
+
   return {
     isRecording,
+    isPaused,
     audioLevel,
     segments,
     startRecording,
     stopRecording,
+    pauseRecording,
+    resumeRecording,
     error: error || (!speechSupported ? 'Taligenkänning stöds inte i denna webbläsare' : null)
   };
 };

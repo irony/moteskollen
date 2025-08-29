@@ -69,22 +69,45 @@ export const FooterWithRecording: React.FC<FooterWithRecordingProps> = ({
             
             {/* Huvudknapp */}
             <Button
-              onClick={isRecording ? onStopRecording : onStartRecording}
+              onClick={
+                isRecording 
+                  ? (isPaused ? onResumeRecording : onPauseRecording)
+                  : onStartRecording
+              }
               disabled={disabled}
               className={`
                 relative z-10 w-16 h-16 rounded-full transition-all duration-300 shadow-lg
-                ${isRecording
+                ${isRecording && !isPaused
                   ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25 shadow-2xl' 
+                  : isRecording && isPaused
+                  ? 'bg-yellow-500 hover:bg-yellow-600 shadow-yellow-500/25'
                   : 'bg-primary hover:bg-primary/90 shadow-primary/25'
                 }
               `}
             >
               {isRecording ? (
-                <Square className="w-6 h-6 text-white" fill="currentColor" />
+                isPaused ? (
+                  <Mic className="w-6 h-6 text-white" />
+                ) : (
+                  "⏸️"
+                )
               ) : (
                 <Mic className="w-6 h-6 text-white" />
               )}
             </Button>
+
+            {/* Stopp-knapp (synlig under inspelning) */}
+            {isRecording && (
+              <Button
+                onClick={onStopRecording}
+                variant="outline"
+                size="sm"
+                className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-background"
+              >
+                <Square className="w-3 h-3 mr-1" fill="currentColor" />
+                Stoppa
+              </Button>
+            )}
 
             {/* Lydnivå-visualisering */}
             {isRecording && !isPaused && (
