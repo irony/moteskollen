@@ -400,14 +400,22 @@ class BergetApiService {
 
   // Transkribera ljudfil
   async transcribeAudio(audioBlob: Blob, retries: number = 2): Promise<TranscriptionResponse> {
+    console.log('transcribeAudio called with blob size:', audioBlob.size, 'type:', audioBlob.type);
+    
     // Validate file upload
     const fileName = audioBlob instanceof File ? audioBlob.name : 'audio.webm';
     const fileType = audioBlob.type || 'audio/webm';
     const file = new File([audioBlob], fileName, { type: fileType });
-    const { securityService } = await import('../lib/security');
-    const validation = securityService.validateFileUpload(file);
-    if (!validation.valid) {
-      throw new Error(validation.error);
+    
+    try {
+      const { securityService } = await import('../lib/security');
+      const validation = securityService.validateFileUpload(file);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+    } catch (securityError) {
+      console.error('Security validation failed:', securityError);
+      throw new Error(`Säkerhetsvalidering misslyckades: ${securityError}`);
     }
 
     const formData = new FormData();
@@ -416,25 +424,28 @@ class BergetApiService {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
+        console.log(`Transkribering försök ${attempt + 1}/${retries + 1} - API nyckel finns: ${!!this.apiKey}`);
+        
         const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/v1/audio/transcriptions`, {
           method: 'POST',
           body: formData
         });
 
+        console.log('Transcription response status:', response.status, response.statusText);
         return await this.handleApiResponse<TranscriptionResponse>(response);
       } catch (error: any) {
-        console.log(`Transkribering försök ${attempt + 1}/${retries + 1} misslyckades:`, error.message);
+        console.error(`Transkribering försök ${attempt + 1}/${retries + 1} misslyckades:`, error);
         
         // If it's the last attempt or not a server error, throw
-        if (attempt === retries || !error.message.includes('Serverfel')) {
+        if (attempt === retries || (!error.message.includes('Serverfel') && !error.message.includes('Failed to fetch'))) {
           if (error.type === 'quota_exceeded') {
             throw new Error(`${error.message}\n\nGå till https://berget.ai för att fylla på ditt konto.`);
           }
-          throw new Error(`Transkribering misslyckades: ${error.message}`);
+          throw new Error(`Transkribering misslyckades: ${error.message || error}`);
         }
         
-        // Wait before retry (exponential backoff)
-        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        // Wait before retry (exponential backoff) - shorter delays for network errors
+        const delay = error.message?.includes('Failed to fetch') ? 500 * (attempt + 1) : Math.pow(2, attempt) * 1000;
         console.log(`Väntar ${delay}ms innan nästa försök...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
