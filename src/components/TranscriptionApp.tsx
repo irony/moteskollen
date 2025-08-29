@@ -60,6 +60,8 @@ import { cn } from '@/lib/utils';
 interface TranscriptionAppProps {
   onLogout: () => void;
   className?: string;
+  shouldAutoStart?: boolean;
+  onAutoStartComplete?: () => void;
 }
 
 type ProcessingStep = 'idle' | 'transcribing' | 'summarizing' | 'completed' | 'error';
@@ -129,7 +131,7 @@ const PROTOCOL_TEMPLATES = [
   }
 ];
 
-export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, className }) => {
+export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, className, shouldAutoStart, onAutoStartComplete }) => {
   const [processingStep, setProcessingStep] = useState<ProcessingStep>('idle');
   const [fullTranscription, setFullTranscription] = useState('');
   const [summary, setSummary] = useState('');
@@ -393,6 +395,14 @@ export const TranscriptionApp: React.FC<TranscriptionAppProps> = ({ onLogout, cl
 
     return () => clearTimeout(timer);
   }, [isRecording, currentMeetingId, segments, analysisStarted, analyzeTranscription]);
+
+  // Auto-start recording when shouldAutoStart is true
+  React.useEffect(() => {
+    if (shouldAutoStart && !isRecording) {
+      handleStartRecording();
+      onAutoStartComplete?.();
+    }
+  }, [shouldAutoStart, isRecording, handleStartRecording, onAutoStartComplete]);
 
   const deleteMeeting = (meetingId: string) => {
     const updatedMeetings = meetings.filter(m => m.id !== meetingId);

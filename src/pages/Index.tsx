@@ -27,6 +27,7 @@ const Index = () => {
   const [currentView, setCurrentView] = useState<ViewMode>('history');
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [shouldAutoStartRecording, setShouldAutoStartRecording] = useState(false);
 
   useEffect(() => {
     // Kontrollera om användaren redan är autentiserad
@@ -58,6 +59,11 @@ const Index = () => {
     setCurrentView(view);
     setAppState(view);
     setSelectedMeeting(null);
+  };
+
+  const handleStartRecordingAndNavigate = () => {
+    setShouldAutoStartRecording(true);
+    handleViewChange('live');
   };
 
   const handleSelectMeeting = (meeting: Meeting) => {
@@ -99,7 +105,7 @@ const Index = () => {
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
-            onStartRecording={() => handleViewChange('live')}
+            onStartRecording={handleStartRecordingAndNavigate}
           />
         </>
       );
@@ -114,6 +120,8 @@ const Index = () => {
           />
           <TranscriptionApp 
             onLogout={handleLogout}
+            shouldAutoStart={shouldAutoStartRecording}
+            onAutoStartComplete={() => setShouldAutoStartRecording(false)}
           />
         </>
       );
@@ -138,7 +146,7 @@ const Index = () => {
           <MeetingList 
             onLogout={handleLogout}
             onSelectMeeting={handleSelectMeeting}
-            onStartRecording={() => handleViewChange('live')}
+            onStartRecording={handleStartRecordingAndNavigate}
           />
         </>
       );
