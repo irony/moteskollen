@@ -1,0 +1,44 @@
+name: Kubernetes Manifests Validation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'k8s/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'k8s/**'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+        
+    - name: Validate Kubernetes manifests
+      run: |
+        echo "🔍 Validating Kubernetes YAML manifests..."
+        for file in k8s/*.yaml k8s/*.yml; do
+          if [ -f "$file" ]; then
+            echo "Validating $file"
+            kubectl --dry-run=client --validate=true apply -f "$file" || exit 1
+          fi
+        done
+        echo "✅ All Kubernetes manifests are valid!"
+        
+    - name: Check for security issues
+      run: |
+        echo "🔒 Checking for basic security issues..."
+        if grep -r "imagePullPolicy.*Always" k8s/ >/dev/null; then
+          echo "✅ Found imagePullPolicy: Always"
+        else
+          echo "⚠️  Consider adding imagePullPolicy: Always for latest images"
+        fi
+        echo "🔍 Security check completed"

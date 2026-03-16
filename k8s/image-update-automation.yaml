@@ -1,0 +1,22 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageUpdateAutomation
+metadata:
+  name: moteskollen
+  namespace: moteskollen
+spec:
+  interval: 1m
+  sourceRef:
+    kind: ImageRepository
+    name: moteskollen
+  git:
+    checkout:
+      ref: main
+    commit:
+      author:
+        name: Flux
+        email: flux@example.com
+      messageTemplate: "Update moteskollen image to { .Object }"
+    dir: k8s
+  update:
+    path: deployment.yaml
+    strategy: Setters

@@ -1,0 +1,8 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta1
+kind: ImageRepository
+metadata:
+  name: moteskollen
+  namespace: moteskollen
+spec:
+  image: ghcr.io/moteskollen/moteskollen
+  interval: 1m
