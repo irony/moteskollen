@@ -226,38 +226,46 @@ export const useHybridTranscription = (
       // Hämta audio-chunks för just detta segment
       const segmentChunks = segmentAudioRef.current.get(segmentId);
       if (!segmentChunks || segmentChunks.length === 0) {
-        console.log('Inga audio-chunks för segment:', segmentId);
+        console.warn('[Berget] Inga audio-chunks för segment:', segmentId);
         return;
       }
 
       const segmentDuration = endTime - startTime;
-      if (segmentDuration < 1) return;
+      console.log(`[Berget] Segment ${segmentId}: duration=${segmentDuration}s, chunks=${segmentChunks.length}`);
+      if (segmentDuration < 1) {
+        console.warn('[Berget] Segment för kort, hoppar över:', segmentDuration);
+        return;
+      }
 
       // Skapa blob från detta segments chunks
       const audioBlob = new Blob(segmentChunks, { type: 'audio/webm' });
-      console.log(`Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes)`);
+      console.log(`[Berget] Skickar segment ${segmentId} till Berget AI (${audioBlob.size} bytes, type: ${audioBlob.type})`);
       
       // Importera bergetApi dynamiskt för att undvika cirkulär import
       const { bergetApi } = await import('@/services/bergetApi');
+      console.log('[Berget] bergetApi importerad, anropar transcribeAudio...');
       const result = await bergetApi.transcribeAudio(audioBlob);
+      console.log('[Berget] Råsvar från Berget AI:', JSON.stringify(result));
 
       // Rensa bort konstiga tecken och tystnadsindikatorer från Berget AI
       const cleanText = cleanBergetText(result.text);
+      console.log(`[Berget] Rensat text: "${cleanText}" (original: "${result.text}")`);
       
       // Hoppa över tomma eller meningslösa segment
       if (!cleanText || cleanText.length < 2) {
-        console.log('Hoppade över tomt Berget-segment');
+        console.warn('[Berget] Hoppade över tomt/kort Berget-segment efter rensning');
         return;
       }
 
       // Uppdatera segmentet med Berget AI:s resultat
+      console.log(`[Berget] ✅ Uppdaterar segment ${segmentId} med Berget-text: "${cleanText}"`);
       setSegments(prev => prev.map(segment => 
         segment.id === segmentId
           ? {
               ...segment,
               text: cleanText,
               isLocal: false,
-              confidence: 0.95 // Hög confidence för Berget AI
+              confidence: 0.95
             }
           : segment
       ));
@@ -267,8 +275,9 @@ export const useHybridTranscription = (
         onBergetTranscription(cleanText);
       }
 
-    } catch (err) {
-      console.error('Berget transcription error:', err);
+    } catch (err: any) {
+      console.error('[Berget] ❌ Transcription error:', err?.message || err);
+      console.error('[Berget] Full error:', err);
       // Behåll lokala resultatet vid fel
     }
   };
