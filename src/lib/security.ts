@@ -14,7 +14,7 @@ interface SecureTokenData {
 
 export class SecurityService {
   private static instance: SecurityService;
-  private sessionTimer: NodeJS.Timeout | null = null;
+  private sessionTimer: ReturnType<typeof setTimeout> | null = null;
   private lastActivity: number = Date.now();
 
   static getInstance(): SecurityService {
