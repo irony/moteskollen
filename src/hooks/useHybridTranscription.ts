@@ -105,9 +105,10 @@ export const useHybridTranscription = (
         // Final resultat - skapa eller uppdatera segment
         const segmentId = pendingSegmentId || Date.now().toString();
         
-        // Spara audio-chunks för detta segment
+        // Spara audio-chunks för detta segment (max 15s)
+        const maxChunks = 15;
         if (currentSegmentChunksRef.current.length > 0) {
-          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
+          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current.slice(-maxChunks)]);
         }
         
         setSegments(prev => {
@@ -175,20 +176,23 @@ export const useHybridTranscription = (
           }
         });
 
-        // Sätt timer för att skicka till Berget efter 300ms tystnad
+        // Sätt timer för att skicka till Berget efter 2s tystnad (ger Speech API tid att ge final)
         silenceTimerRef.current = setTimeout(() => {
           if (pendingSegmentId && currentInterimText.trim().length > 10 && !hasBeenSentToBerget) {
-            console.log('Skickar interim segment till Berget efter tystnad:', pendingSegmentId);
+            console.log('[Berget] Skickar interim segment efter tystnad:', pendingSegmentId);
             
-            // Spara audio-chunks för detta segment
-            if (currentSegmentChunksRef.current.length > 0) {
-              segmentAudioRef.current.set(pendingSegmentId, [...currentSegmentChunksRef.current]);
+            // Begränsa audio-chunks till max 15 sekunder (15 chunks à 1s)
+            const maxChunks = 15;
+            const chunksToSend = currentSegmentChunksRef.current.slice(-maxChunks);
+            
+            if (chunksToSend.length > 0) {
+              segmentAudioRef.current.set(pendingSegmentId, [...chunksToSend]);
             }
 
-            hasBeenSentToBerget = true; // Mark as sent to prevent duplicate sends
+            hasBeenSentToBerget = true;
             sendAudioSegmentToBerget(pendingSegmentId, segmentStartTimeRef.current, audioTime);
           }
-        }, 300);
+        }, 2000);
       }
     };
 
