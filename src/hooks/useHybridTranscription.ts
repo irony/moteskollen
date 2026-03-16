@@ -64,7 +64,7 @@ export const useHybridTranscription = (
   const sentSegmentsRef = useRef<Set<string>>(new Set());
   const segmentAudioRef = useRef<Map<string, Blob[]>>(new Map());
   const currentSegmentChunksRef = useRef<Blob[]>([]);
-  const cleanupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastCleanupRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
