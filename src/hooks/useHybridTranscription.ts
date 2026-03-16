@@ -112,14 +112,15 @@ export const useHybridTranscription = (
         
         setSegments(prev => {
           const existingIndex = prev.findIndex(s => s.id === segmentId);
+          const existingSegment = existingIndex >= 0 ? prev[existingIndex] : null;
           const newSegment: TranscriptionSegment = {
             id: segmentId,
-            text: transcript.trim(),
+            text: existingSegment && !existingSegment.isLocal ? existingSegment.text : transcript.trim(),
             timestamp: now,
-            isLocal: true,
-            audioStart: segmentStartTimeRef.current,
+            isLocal: existingSegment ? existingSegment.isLocal : true,
+            audioStart: existingSegment?.audioStart ?? segmentStartTimeRef.current,
             audioEnd: audioTime,
-            confidence
+            confidence: existingSegment && !existingSegment.isLocal ? existingSegment.confidence : confidence
           };
 
           if (existingIndex >= 0) {
