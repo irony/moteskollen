@@ -105,9 +105,10 @@ export const useHybridTranscription = (
         // Final resultat - skapa eller uppdatera segment
         const segmentId = pendingSegmentId || Date.now().toString();
         
-        // Spara audio-chunks för detta segment
+        // Spara audio-chunks för detta segment (max 15s)
+        const maxChunks = 15;
         if (currentSegmentChunksRef.current.length > 0) {
-          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current]);
+          segmentAudioRef.current.set(segmentId, [...currentSegmentChunksRef.current.slice(-maxChunks)]);
         }
         
         setSegments(prev => {
